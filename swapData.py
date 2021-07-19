@@ -6,9 +6,13 @@ from matplotlib.pyplot import figure
 
 client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/yekta/uniswap-v3-with-fees-and-amounts")
 
-poolAddress = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"
-
-numPreviousBlocks = 100
+usdcUSDT = "0x7858e59e0c01ea06df3af3d20ac7b0003275d4bf"
+usdcETH = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"
+#poolAddress = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"
+#poolAddress = "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed"
+#poolAddress = "0x6c6bc977e13df9b0de53b251522280bb72383700"
+poolAddress = usdcETH
+numPreviousBlocks = 200
 
 
 swapQuery = """
