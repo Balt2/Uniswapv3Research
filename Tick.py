@@ -1,6 +1,7 @@
 import math
 import constants
-
+import SqrtPriceMath
+import TickList
 
 class Tick:
 	def __init__(self, liquidityActive, tickIdx, liquidityNet, liquidityGross, token0, token1):
@@ -72,28 +73,26 @@ class Block:
 		self.averageGas = float(gasSum /len(self.swaps))
 
 class Pool:
-	def __init__(self, token0, token1, feeTeir, sqrtRatio ,liquidity, tick, mockTicks, address):
+	def __init__(self, token0, token1, feeTeir, sqrtRatioX96,liquidity, tick, ticks, address, tickSpacing):
 		self.address = address
 		self.feeTeir = feeTeir
 		self.token0 = token0
 		self.token1 = token1
 		self.liquidity = liquidity
-		self.sqrtRatio = sqrtRatio
-		self.tick = tick
-		self.mockTicks = mockTicks
+		self.sqrtRatioX96 = sqrtRatioX96
+		self.tickCurrent = tick
+		self.tickDataProvider = TickList(ticks, tickSpacing)
 		self.tickCurrentSqrtRatioX96 = self.sqrtRatioAtTick(tick)
 		self.nextTickSqrtRatioX96 = self.sqrtRatioAtTick(tick + 1)
+		self.tickSpacing = tickSpacing
+		self.sqrtPriceMath = SqrtPriceMath()
 
-
-	def sqrtRatioAtTick(self, tick):
-		absTick = abs(tick)
-		return (sqrt(1.0001)) ** absTick
 
 	def getToken0Price(self):
-		return Price(self.token0, self.token1, constants.q192, self.sqrtRatio * self.sqrtRatio)
+		return Price(self.token0, self.token1, constants.q192, self.sqrtRatioX96 * self.sqrtRatioX96)
 
 	def getToken1Price(self):
-		return Price(self.token1, self.token0, self.sqrtRatio * self.sqrtRatio, constants.q192)
+		return Price(self.token1, self.token0, self.sqrtRatioX96 * self.sqrtRatio, constants.q192)
 
 	def priceOf(self, token):
 		if token.address == self.token0.address:
@@ -102,12 +101,70 @@ class Pool:
 			return self.token1
 		#TODO Check if token is not token0 or token1
 
-	def getOutputAmount(self, inputAmount, sqrtPriceLimit, token0ForToken1):
-		self.swap(token0ForToken1, inputAmount.quotient(), sqrtPriceLimit)
+	def computeSwapStep(self, sqrtRatioCurrent, sqrtRatioTarget, liquidity, amountRemaininig, feePips):
+		zeroForOne = (sqrtRatioCurrent >= sqrtRatioTarget)
+		exactIn = (amountRemaininig >= 0)
 
-	#def swap(self, token0ForToken1, amountSpecified, sqrtPriceLimit):
+		if exactIn:
+			amountRemainingLessFee = (amountRemaininig * (constants.MAX_FEE - feePips) / constants.MAX_FEE)
+			amountIn = self.getAmount0Delta(sqrtRatioTarget, sqrtRatioCurrent, liquidity, True) if zeroForOne else self.getAmount1Delta(sqrtRatioCurrent, sqrtRatioTarget, liquidity, True)
 
-		
+			if amountRemainingLessFee > amountIn:
+				sqrtRatioNextX96 = sqrtRatioTarget
+			else:
+				sqrtRatioNextX96 = self.getNextSqrtPriceFromInput(sqrtRatioCurrent, liquidity, amountRemainingLessFee, zeroForOne)
+		else:
+			amountOut = self.getAmount1Delta(sqrtRatioTarget, sqrtRatioCurrent, liquidity, False) if zeroForOne else self.getAmount0Delta(sqrtRatioCurrent, sqrtRatioTarget, liquidity, False)
+			if amountRemaininig * -1 > amountOut:
+				sqrtRatioNextX96 = sqrtRatioTarget
+			else:
+				sqrtRatioNextX96 = self.getNextSqrtPriceFromOutput(sqrtRatioCurrent, liquidity, amountRemaininig*-1, zeroForOne)
+
+
+	def swap(self, zeroForOne, amountSpecified, sqrtPriceLimit = "BEN"):
+		if sqrtPriceLimit == "BEN":
+			sqrtPriceLimit = constants.MIN_SQRT_RATIO + 1 if zeroForOne else constants.MAX_SQRT_RATIO - 1
+
+  		#TODO: add invariant
+
+		exactInput = (amountSpecified >= 0)
+
+		#STATE
+		stateAmountSpecifiedRemaining = amountSpecified
+		stateAmountCalculated = 0
+		stateSqrtPriceX96 = self.sqrtRatioX96
+		stateTick = self.tickCurrent
+		stateLiquidity = self.liquidity
+
+
+		while stateAmountSpecifiedRemaining != 0 and stateSqrtPriceX96 != sqrtPriceLimitX96:
+			step = StepComputations()
+			step.setSqrtPriceStart(stateSqrtPriceX96)
+
+			tickNext, initialized = self.nextInitTickWithinOneWord(stateTick, zeroForOne, self.tickSpacing)
+
+			if tickNext < constants.MIN_TICK:
+				tickNext = constants.MIN_TICK
+			elif tickNext > constants.MAX_TICK:
+				tickNext = constants.MAX_TICK
+
+			step.setTickNext(tickNext)
+			step.setInit(initialized)
+
+			step.setSqrtPriceNext(self.sqrtPriceMath.sqrtRatioAtTick(tickNext))
+			sqrtPriceX96, amountIn, amountOut, feeAmount = 
+
+
+	def getOutputAmount(self, inputAmount, sqrtPriceLimitX96):
+		zeroForOne = inputAmount.currency.address == self.token0
+
+		outputAmount, sqrtRatioX96, liquidity, tickCurrent = self.swap(token0ForToken1, inputAmount.quotient(), sqrtPriceLimit)
+
+		outputToken = self.token1 if zeroForOne else self.token0
+
+		return CurrencyAmount.fromRawAmount(outputToken, outputAmount*-1)
+
+
 
 class Price:
 	def __init__(self, tBase, tQuote, denominator, numerator):
@@ -126,10 +183,13 @@ class Price:
 		return Price(self.baseCurrency, self.quoteCurrency, den, num) 
 
 class CurrencyAmount:
-	def __init__(self, token, numerator, denominator):
+	def __init__(self, token, numerator, denominator=1):
 		self.currency = token
-		self.deciimalScale = 10 ** token.decimals
+		self.decimalScale = 10 ** token.decimals
 		self.price = Fraction(numerator, denominator)
+
+	def fromRawAmount(self, currency, rawAmount):
+		return CurrencyAmount(currency, rawAmount)
 
 class Fraction:
 	def __init__(self, numerator, denominator):
@@ -147,6 +207,29 @@ class Fraction:
 
 	def invert(self):
 		return Fraction(self.denominator, self.numerator)
+
+
+class StepComputations:
+	def __init__(self, sqrtPriceStartX96=0, tickNext=0, initialized=True, sqrtPriceNextX96=0, amountIn=0, amountOut=0, feeAmount=0):
+		self.sqrtPriceStartX96 = sqrtPriceStartX96
+		self.tickNext = tickNext
+		self.initialized = initialized
+		self.sqrtPriceNextX96 = sqrtPriceNextX96
+		self.amountIn = amountIn
+		self.amountOut = amountOut
+		self.feeAmount = feeAmount
+
+	def setSqrtPriceStart(self, sqrtPrice):
+		self.sqrtPriceNextX96 = sqrtPrice
+
+	def setTickNext(self, tickNext):
+		self.tickNext = tickNext
+
+	def setInit(self, init):
+		self.initialized = init
+
+	def setSqrtPriceNext(self, sqrtPriceNext):
+		self.sqrtPriceNextX96 = sqrtPriceNext
 
 
 
