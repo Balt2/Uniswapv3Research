@@ -1,7 +1,7 @@
 class TickList:
 	def __init__(self, ticks, tickSpacing):
 		self.ticks = ticks
-		self.tickSpacing
+		self.tickSpacing = tickSpacing
 
 	def isBelowSmallest(self, tickIdx):
 		return tickIdx < self.ticks[0].tickIdx
@@ -57,7 +57,7 @@ class TickList:
 			return (nextInitializedTick, (nextInitializedTick == index))
 		else:
 			wordPos = (compressed + 1) >> 8
-			maximum = ((wordPos + 1) << 8) * tickSpacing - 1
+			maximum = ((wordPos + 1) << 8) * self.tickSpacing - 1
 
 			if self.isAtOrAboveLargest(tickIdx):
 				return (maximum, False)

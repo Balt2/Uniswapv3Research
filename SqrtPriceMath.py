@@ -1,4 +1,5 @@
 import constants
+import math
 
 class SqrtPriceMath:
 	def __init__(self, hi=0):
@@ -6,11 +7,12 @@ class SqrtPriceMath:
 
 	def multiplyIn256(self, x, y):
 		product = x * y
-		return (product & constants.MaxUinit256)
+		#TODO HOW SHOULD I CORRECTLY CAST THIS AS INT?
+		return (int(product) & constants.MaxUint256) 
 
 	def addIn256(self, x, y):
 		summ = x + y
-		return (summ & constants.MaxUinit256)
+		return (summ & constants.MaxUint256)
 
 	def mulDivRoundingUp(self,a, b, denominator):
 		product = a * b
@@ -97,11 +99,12 @@ class SqrtPriceMath:
 
 	def sqrtRatioAtTick(self, tick):
 		absTick = abs(tick)
-		return (sqrt(1.0001)) ** absTick
+		return (math.sqrt(1.0001)) ** absTick
 
 
 	def getTickAtSqrtRatio(self, sqrtRatioX96):
-		sqrtRatioX128 = sqrtRatioX96 << 32
+		#TODO HOW SHOULD I CORRECTLY CAST THIS AS INT?
+		sqrtRatioX128 = int(sqrtRatioX96) << 32
 		msb = self.mostSignificantBiit(sqrtRatioX128)
 		r = 0
 		if msb >= 128:
@@ -125,7 +128,7 @@ class SqrtPriceMath:
 
 		if tickLow == tickHigh:
 			return tickLow
-		elif self.getTickAtSqrtRatio(tickHigh) <= sqrtRatioX96:
+		elif self.sqrtRatioAtTick(tickHigh) <= sqrtRatioX96:
 			return tickHigh
 		else:
 			return tickLow

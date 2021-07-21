@@ -1,7 +1,7 @@
 import math
 import constants
-import SqrtPriceMath
-import TickList
+from SqrtPriceMath import *
+from TickList import *
 
 class Tick:
 	def __init__(self, liquidityActive, tickIdx, liquidityNet, liquidityGross, token0, token1):
@@ -74,6 +74,7 @@ class Block:
 
 class Pool:
 	def __init__(self, token0, token1, feeTeir, sqrtRatioX96,liquidity, tick, ticks, address, tickSpacing):
+		self.sqrtPriceMath = SqrtPriceMath()
 		self.address = address
 		self.feeTeir = feeTeir
 		self.token0 = token0
@@ -82,10 +83,10 @@ class Pool:
 		self.sqrtRatioX96 = sqrtRatioX96
 		self.tickCurrent = tick
 		self.tickDataProvider = TickList(ticks, tickSpacing)
-		self.tickCurrentSqrtRatioX96 = self.sqrtRatioAtTick(tick)
-		self.nextTickSqrtRatioX96 = self.sqrtRatioAtTick(tick + 1)
+		self.tickCurrentSqrtRatioX96 = self.sqrtPriceMath.sqrtRatioAtTick(tick)
+		self.nextTickSqrtRatioX96 = self.sqrtPriceMath.sqrtRatioAtTick(tick + 1)
 		self.tickSpacing = tickSpacing
-		self.sqrtPriceMath = SqrtPriceMath()
+		
 
 
 	def getToken0Price(self):
@@ -166,7 +167,7 @@ class Pool:
 		while stateAmountSpecifiedRemaining != 0 and stateSqrtPriceX96 != sqrtPriceLimitX96:
 			stepSqrtPriceStartX96 = stateSqrtPriceX96
 
-			stepTickNext, stepInitialized = self.nextInitTickWithinOneWord(stateTick, zeroForOne, self.tickSpacing)
+			stepTickNext, stepInitialized = self.tickDataProvider.nextInitializedTickWithinOneWord(stateTick, zeroForOne)
 
 			if stepTickNext < constants.MIN_TICK:
 				stepTickNext = constants.MIN_TICK
@@ -216,7 +217,7 @@ class Pool:
 	def getOutputAmount(self, inputAmount, sqrtPriceLimitX96):
 		zeroForOne = inputAmount.currency.address == self.token0
 
-		outputAmount, sqrtRatioX96, liquidity, tickCurrent = self.swap(token0ForToken1, inputAmount.quotient(), sqrtPriceLimitX96)
+		outputAmount, sqrtRatioX96, liquidity, tickCurrent = self.swap(zeroForOne, inputAmount.quotient(), sqrtPriceLimitX96)
 
 		outputToken = self.token1 if zeroForOne else self.token0
 
@@ -246,6 +247,8 @@ class CurrencyAmount:
 		self.decimalScale = 10 ** token.decimals
 		self.price = Fraction(numerator, denominator)
 
+	def quotient(self):
+		return self.price.quotient()
 	
 
 class Fraction:

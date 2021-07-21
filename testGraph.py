@@ -1,6 +1,9 @@
 from python_graphql_client import GraphqlClient
-from  Tick import *
+from Tick import *
 import matplotlib.pyplot as plt
+from SqrtPriceMath import *
+from TickList import *
+import constants
 
 
 client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/yekta/uniswap-v3-with-fees-and-amounts")
@@ -22,7 +25,7 @@ shibETH = "0x5764a6f2212d502bc5970f9f129ffcd61e5d7563"
 #poolAddress = "0x6c6bc977e13df9b0de53b251522280bb72383700"
 poolAddress = usdcETH
 
-maxUnit128 = 340282366920938463463374607431768211455
+
 
 
 def computeSurroundingTicks(activeTickP, tickSpacing, numSurroundingTicks, asc, tickDict, token0, token1):
@@ -188,11 +191,34 @@ previousTicks = computeSurroundingTicks(activeTickProcessed, tickSpacing, numSur
 previousTicks.append(activeTickProcessed)
 allTicks = previousTicks + subsequentTicks
 
+
+wholePool = Pool(token0, token1, int(poolFeeTier), int(((poolDataQuery['data'])['pool'])['sqrtPrice']), liquidityActive, activeTickProcessed.tickIdx, allTicks,poolAddress, tickSpacing )
+
+
+
+
 x = []
 liq = []
-for tick in allTicks:
+sqrtPriceMath = SqrtPriceMath()
+for index, tick in enumerate(allTicks):
 	x.append(tick.price0)
 	liq.append(tick.liquidityActive)
+
+	#Getting Price information
+	active = (tick.tickIdx == activeTickProcessed.tickIdx)
+	sqrtPriceX96 = sqrtPriceMath.sqrtRatioAtTick(tick.tickIdx)
+	feeAmount = wholePool.feeTeir
+	mockTicks = [Tick(0, tick.tickIdx - wholePool.tickSpacing, tick.liquidityNet * -1, tick.liquidityGross, token0, token1), tick]
+	tickPool =  Pool(token0, token1, int(poolFeeTier), sqrtPriceX96, tick.liquidityActive, tick.tickIdx, mockTicks, poolAddress, tickSpacing)
+	if index != 0:
+		nextSqrtX96 = sqrtPriceMath.sqrtRatioAtTick(allTicks[index - 1].tickIdx)
+		maxAmountToken0 = CurrencyAmount(token0, constants.MaxUnit128)
+		outputRes0 = tickPool.getOutputAmount(maxAmountToken0, nextSqrtX96)
+		token1Amount = outputRes0[0]
+		print(tick.price1)
+		print(token1Amount.quotient())
+		print(token1Amount.quotient() * tick.price0)
+
 
 barWidth = feeTierToBarWidth(poolFeeTier, activeTickProcessed.price0)
 barlist = plt.bar(x, liq, width=barWidth)
