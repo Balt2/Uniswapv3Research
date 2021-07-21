@@ -1,4 +1,4 @@
-class TickList
+class TickList:
 	def __init__(self, ticks, tickSpacing):
 		self.ticks = ticks
 		self.tickSpacing
@@ -29,4 +29,43 @@ class TickList
 		tick = self.ticks[self.binarySearch(index)]
 		return tick
 
-	def nextIniitializedTick(self, tickIdx, lte):
+	def nextInitializedTick(self, tickIdx, lte):
+		if lte:
+			if self.isAtOrAboveLargest(tickIdx):
+				return self.ticks[-1]
+
+			index = self.binarySearch(tickIdx)
+			return self.ticks[index]
+		else:
+			if self.isBelowSmallest(tickIdx):
+				return self.ticks[0]
+			index = self.binarySearch(tickIdx)
+			return self.ticks[index + 1]
+
+	def nextInitializedTickWithinOneWord(self, tickIdx, lte):
+		compressed = tickIdx // self.tickSpacing
+
+		if (lte):
+			wordPos = compressed >> 8
+			minimium = (wordPos << 8) * self.tickSpacing
+
+			if self.isBelowSmallest(tickIdx):
+				return (minimium, False)
+
+			index = self.nextInitializedTick(tickIdx, lte).tickIdx
+			nextInitializedTick = max(minimium, index)
+			return (nextInitializedTick, (nextInitializedTick == index))
+		else:
+			wordPos = (compressed + 1) >> 8
+			maximum = ((wordPos + 1) << 8) * tickSpacing - 1
+
+			if self.isAtOrAboveLargest(tickIdx):
+				return (maximum, False)
+
+			index = self.nextInitializedTick(tickIdx, lte).tickIdx
+			nextInitializedTick = min(maximum, index)
+			return (nextInitializedTick, (nextInitializedTick == index))
+
+
+
+

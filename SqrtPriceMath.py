@@ -84,9 +84,55 @@ class SqrtPriceMath:
 			quotient = self.mulDivRoundingUp(amount, constants.Q96, liquidity)
 			return sqrtPX96 - quotient
 
+	def mostSignificantBiit(self, x):
+		powersOf2 = [(128, 2 ** 128), (64, 2 ** 64), (32, 2 ** 32), (16, 2 ** 16), (8, 2 ** 8), (4, 2 ** 4), (2, 2 ** 2), (1, 2 ** 1)]
+		msb = 0
+		for index, val in enumerate(powersOf2):
+			if x >= val[1]:
+				x = x >> val[0]
+				msb += val[0]
+
+		return msb
+
 
 	def sqrtRatioAtTick(self, tick):
 		absTick = abs(tick)
 		return (sqrt(1.0001)) ** absTick
 
+
+	def getTickAtSqrtRatio(self, sqrtRatioX96):
+		sqrtRatioX128 = sqrtRatioX96 << 32
+		msb = self.mostSignificantBiit(sqrtRatioX128)
+		r = 0
+		if msb >= 128:
+			r = sqrtRatioX128 >> msb  - 127
+		else:
+			r = sqrtRatioX128 << 127 - msb
+
+		log2 = (msb - 128) << 64
+
+		for i in range(14):
+			r = (r*r) >> 127
+			f = r >> 128
+			log2 = log2 | (f << 63 - i)
+			r = r >> f
+
+		logSqrt1001 = log2 * 255738958999603826347141
+
+		tickLow = (logSqrt1001 - 3402992956809132418596140100660247210) >> 128
+
+		tickHigh = (logSqrt1001 + 291339464771989622907027621153398088495) >> 128
+
+		if tickLow == tickHigh:
+			return tickLow
+		elif self.getTickAtSqrtRatio(tickHigh) <= sqrtRatioX96:
+			return tickHigh
+		else:
+			return tickLow
+
+	def addDelta(self, x, y):
+		if y < 0:
+			return x - (y * -1)
+		else:
+			return x + y
 

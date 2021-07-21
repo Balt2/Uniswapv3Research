@@ -107,23 +107,49 @@ class Pool:
 
 		if exactIn:
 			amountRemainingLessFee = (amountRemaininig * (constants.MAX_FEE - feePips) / constants.MAX_FEE)
-			amountIn = self.getAmount0Delta(sqrtRatioTarget, sqrtRatioCurrent, liquidity, True) if zeroForOne else self.getAmount1Delta(sqrtRatioCurrent, sqrtRatioTarget, liquidity, True)
+			amountIn = self.sqrtPriceMath.getAmount0Delta(sqrtRatioTarget, sqrtRatioCurrent, liquidity, True) if zeroForOne else self.sqrtPriceMath.getAmount1Delta(sqrtRatioCurrent, sqrtRatioTarget, liquidity, True)
 
 			if amountRemainingLessFee > amountIn:
 				sqrtRatioNextX96 = sqrtRatioTarget
 			else:
-				sqrtRatioNextX96 = self.getNextSqrtPriceFromInput(sqrtRatioCurrent, liquidity, amountRemainingLessFee, zeroForOne)
+				sqrtRatioNextX96 = self.sqrtPriceMath.getNextSqrtPriceFromInput(sqrtRatioCurrent, liquidity, amountRemainingLessFee, zeroForOne)
 		else:
-			amountOut = self.getAmount1Delta(sqrtRatioTarget, sqrtRatioCurrent, liquidity, False) if zeroForOne else self.getAmount0Delta(sqrtRatioCurrent, sqrtRatioTarget, liquidity, False)
+			amountOut = self.sqrtPriceMath.getAmount1Delta(sqrtRatioTarget, sqrtRatioCurrent, liquidity, False) if zeroForOne else self.sqrtPriceMath.getAmount0Delta(sqrtRatioCurrent, sqrtRatioTarget, liquidity, False)
 			if amountRemaininig * -1 > amountOut:
 				sqrtRatioNextX96 = sqrtRatioTarget
 			else:
-				sqrtRatioNextX96 = self.getNextSqrtPriceFromOutput(sqrtRatioCurrent, liquidity, amountRemaininig*-1, zeroForOne)
+				sqrtRatioNextX96 = self.sqrtPriceMath.getNextSqrtPriceFromOutput(sqrtRatioCurrent, liquidity, amountRemaininig*-1, zeroForOne)
+
+		maximum = (sqrtRatioTarget == sqrtRatioNextX96) 
+
+		if zeroForOne:
+			if not (maximum and exactIn):
+				amountIn = self.sqrtPriceMath.getAmount0Delta(sqrtRatioNextX96, sqrtRatioCurrent, liquidity, True)
+			if not (maximum and (not exactIn)):
+				amountOut = self.sqrtPriceMath.getAmount1Delta(sqrtRatioNextX96, sqrtRatioCurrent, liquidity, False)
+		else:
+			if not (maximum and exactIn):
+				amountIn = self.sqrtPriceMath.getAmount1Delta(sqrtRatioCurrent, sqrtRatioNextX96, liquidity, True)
+			if not (maximum and (not exactIn)):
+				amountOut = self.sqrtPriceMath.getAmount1Delta(sqrtRatioCurrent, sqrtRatioNextX96, liquidity, False)
 
 
-	def swap(self, zeroForOne, amountSpecified, sqrtPriceLimit = "BEN"):
-		if sqrtPriceLimit == "BEN":
-			sqrtPriceLimit = constants.MIN_SQRT_RATIO + 1 if zeroForOne else constants.MAX_SQRT_RATIO - 1
+		if (not exactIn and amountOut > amountRemaininig*-1):
+			amountOut = amountRemaininig * -1			
+		
+		if (exactIn and not (sqrtRatioNextX96 == sqrtRatioTarget)):
+			feeAmount = amountRemaininig - amountIn
+		else:
+			feeAmount = self.SqrtPriceMath.mulDivRoundingUp(amountIn, feePips, constants.MAX_FEE - feePips)
+
+		return (sqrtRatioNextX96, amountIn, amountOut, feeAmount)
+
+	
+
+
+	def swap(self, zeroForOne, amountSpecified, sqrtPriceLimitX96 = "BEN"):
+		if sqrtPriceLimitX96 == "BEN":
+			sqrtPriceLimitX96 = constants.MIN_SQRT_RATIO + 1 if zeroForOne else constants.MAX_SQRT_RATIO - 1
 
   		#TODO: add invariant
 
@@ -138,27 +164,59 @@ class Pool:
 
 
 		while stateAmountSpecifiedRemaining != 0 and stateSqrtPriceX96 != sqrtPriceLimitX96:
-			step = StepComputations()
-			step.setSqrtPriceStart(stateSqrtPriceX96)
+			stepSqrtPriceStartX96 = stateSqrtPriceX96
 
-			tickNext, initialized = self.nextInitTickWithinOneWord(stateTick, zeroForOne, self.tickSpacing)
+			stepTickNext, stepInitialized = self.nextInitTickWithinOneWord(stateTick, zeroForOne, self.tickSpacing)
 
-			if tickNext < constants.MIN_TICK:
-				tickNext = constants.MIN_TICK
-			elif tickNext > constants.MAX_TICK:
-				tickNext = constants.MAX_TICK
+			if stepTickNext < constants.MIN_TICK:
+				stepTickNext = constants.MIN_TICK
+			elif stepTickNext > constants.MAX_TICK:
+				stepTickNext = constants.MAX_TICK
 
-			step.setTickNext(tickNext)
-			step.setInit(initialized)
+			stepSqrtPriceNextX96 = self.sqrtPriceMath.sqrtRatioAtTick(stepTickNext)
 
-			step.setSqrtPriceNext(self.sqrtPriceMath.sqrtRatioAtTick(tickNext))
-			sqrtPriceX96, amountIn, amountOut, feeAmount = 
+			target = 0
+			if zeroForOne:
+				if stepSqrtPriceNextX96 < sqrtPriceLimitX96:
+					target = sqrtPriceLimitX96
+				else:
+					target = stepSqrtPriceNextX96
+			else:
+				if stepSqrtPriceNextX96 > sqrtPriceLimitX96:
+					target = sqrtPriceLimitX96
+				else:
+					target = stepSqrtPriceNextX96
+
+			stateSqrtPriceX96, stepAmountIn, stepAmountOut, stepFeeAmount = self.computeSwapStep(stateSqrtPriceX96, target, stateLiquidity, stateAmountSpecifiedRemaining, self.feeTeir)
+
+			if exactInput:
+				stateAmountSpecifiedRemaining = stateAmountSpecifiedRemaining - (stepAmountIn + stepFeeAmount )
+				stateAmountCalculated = stateAmountCalculated - stepAmountOut
+			else:
+				stateAmountSpecifiedRemaining += stepAmountOut
+				stateAmountCalculated += (stepAmountIn + stepFeeAmount)
+
+			if stateSqrtPriceX96 == stepSqrtPriceNextX96:
+				if stepInitialized:
+					liquidityNet = (tickDataProvider.getTick(stepTickNext)).liquidityNet
+					if zeroForOne:
+						liquidityNet = liquidityNet * -1
+					stateLiquidity = self.sqrtPriceMath.addDelta(stateLiquidity, liquidityNet)
+
+				stateTick = stepTickNext - 1 if zeroForOne else stepTickNext
+			elif stateSqrtPriceX96 != stepSqrtPriceStartX96:
+				stateTick = self.sqrtPriceMath.getTickAtSqrtRatio(stateSqrtPriceX96)
+
+		return stateAmountCalculated, stateSqrtPriceX96, stateLiquidity, stateTick
+
+
+			
 
 
 	def getOutputAmount(self, inputAmount, sqrtPriceLimitX96):
 		zeroForOne = inputAmount.currency.address == self.token0
 
-		outputAmount, sqrtRatioX96, liquidity, tickCurrent = self.swap(token0ForToken1, inputAmount.quotient(), sqrtPriceLimit)
+		outputAmount, sqrtRatioX96, liquidity, tickCurrent = self.swap(token0ForToken1, inputAmount.quotient(), sqrtPriceLimitX96)
 
 		outputToken = self.token1 if zeroForOne else self.token0
 
