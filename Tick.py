@@ -220,7 +220,7 @@ class Pool:
 
 		outputToken = self.token1 if zeroForOne else self.token0
 
-		return CurrencyAmount.fromRawAmount(outputToken, outputAmount*-1)
+		return (CurrencyAmount(outputToken, outputAmount*-1), Pool(self.token0, self.token1, self.feeTeir, sqrtRatioX96, liquidity, tickCurrent, self.tickDataProvider.ticks, self.address, self.tickSpacing ))
 
 
 
@@ -246,8 +246,7 @@ class CurrencyAmount:
 		self.decimalScale = 10 ** token.decimals
 		self.price = Fraction(numerator, denominator)
 
-	def fromRawAmount(self, currency, rawAmount):
-		return CurrencyAmount(currency, rawAmount)
+	
 
 class Fraction:
 	def __init__(self, numerator, denominator):

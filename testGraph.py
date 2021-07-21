@@ -22,6 +22,8 @@ shibETH = "0x5764a6f2212d502bc5970f9f129ffcd61e5d7563"
 #poolAddress = "0x6c6bc977e13df9b0de53b251522280bb72383700"
 poolAddress = usdcETH
 
+maxUnit128 = 340282366920938463463374607431768211455
+
 
 def computeSurroundingTicks(activeTickP, tickSpacing, numSurroundingTicks, asc, tickDict, token0, token1):
 	previousTickProcessed = activeTickP
@@ -80,6 +82,7 @@ def feeTierToBarWidth(feeTier, currentPrice):
 	width = abs(currentPrice - currentPrice*(1 + feeTierInt*.000001) )
 	return width
 
+
 poolQuery = """
 	query pool($poolAddress: String!) {
 	    pool(id: $poolAddress) {
@@ -127,6 +130,8 @@ souroundingTicks = """
 	}
 
 """
+
+
 
 poolDataQuery = client.execute(query=poolQuery, variables={"poolAddress": poolAddress} )
 print(poolDataQuery)
