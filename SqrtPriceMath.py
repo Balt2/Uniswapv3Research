@@ -5,6 +5,12 @@ class SqrtPriceMath:
 	def __init__(self, hi=0):
 		self.hi = hi
 
+	def rshift(self, val, n):
+		return (val) >> n
+
+	def mulShift(self, val, mulBy):
+		return self.rshift(val*mulBy, 128)
+
 	def multiplyIn256(self, x, y):
 		product = x * y
 		#TODO HOW SHOULD I CORRECTLY CAST THIS AS INT?
@@ -86,7 +92,7 @@ class SqrtPriceMath:
 			quotient = self.mulDivRoundingUp(amount, constants.Q96, liquidity)
 			return sqrtPX96 - quotient
 
-	def mostSignificantBiit(self, x):
+	def mostSignificantBit(self, x):
 		powersOf2 = [(128, 2 ** 128), (64, 2 ** 64), (32, 2 ** 32), (16, 2 ** 16), (8, 2 ** 8), (4, 2 ** 4), (2, 2 ** 2), (1, 2 ** 1)]
 		msb = 0
 		for index, val in enumerate(powersOf2):
@@ -97,15 +103,64 @@ class SqrtPriceMath:
 		return msb
 
 
-	def sqrtRatioAtTick(self, tick):
-		absTick = abs(tick)
-		return (math.sqrt(1.0001)) ** absTick
+	# def sqrtRatioAtTick(self, tick):
+	# 	absTick = abs(tick)
+	# 	return (math.sqrt(1.0001)) ** absTick
 
+	def getSqrtRatioAtTick(self, tick):
+		absTick = (abs(tick))
+		ratio = 0xfffcb933bd6fad37aa2d162d1a594001 if ((absTick & 0x1) != 0) else 0x100000000000000000000000000000000
+		if ((absTick & 0x2) != 0):
+			ratio = self.mulShift(ratio, 0xfff97272373d413259a46990580e213a)
+		if ((absTick & 0x4) != 0):
+			ratio = self.mulShift(ratio, 0xfff2e50f5f656932ef12357cf3c7fdcc)
+		if ((absTick & 0x8) != 0):
+			ratio = self.mulShift(ratio, 0xffe5caca7e10e4e61c3624eaa0941cd0)
+		if ((absTick & 0x10) != 0):
+			ratio = self.mulShift(ratio, 0xffcb9843d60f6159c9db58835c926644)
+		if ((absTick & 0x20) != 0):
+			ratio = self.mulShift(ratio, 0xff973b41fa98c081472e6896dfb254c0)
+		if ((absTick & 0x40) != 0):
+			ratio = self.mulShift(ratio, 0xff2ea16466c96a3843ec78b326b52861)
+		if ((absTick & 0x80) != 0):
+			ratio = self.mulShift(ratio, 0xfe5dee046a99a2a811c461f1969c3053)
+		if ((absTick & 0x100) != 0):
+			ratio = self.mulShift(ratio, 0xfcbe86c7900a88aedcffc83b479aa3a4)
+		if ((absTick & 0x200) != 0):
+			ratio = self.mulShift(ratio, 0xf987a7253ac413176f2b074cf7815e54)
+		if ((absTick & 0x400) != 0):
+			ratio = self.mulShift(ratio, 0xf3392b0822b70005940c7a398e4b70f3)
+		if ((absTick & 0x800) != 0):
+			ratio = self.mulShift(ratio, 0xe7159475a2c29b7443b29c7fa6e889d9)
+		if ((absTick & 0x1000) != 0):
+			ratio = self.mulShift(ratio, 0xd097f3bdfd2022b8845ad8f792aa5825)
+		if ((absTick & 0x2000) != 0):
+			ratio = self.mulShift(ratio, 0xa9f746462d870fdf8a65dc1f90e061e5)
+		if ((absTick & 0x4000) != 0):
+			ratio = self.mulShift(ratio, 0x70d869a156d2a1b890bb3df62baf32f7)
+		if ((absTick & 0x8000) != 0):
+			ratio = self.mulShift(ratio, 0x31be135f97d08fd981231505542fcfa6)
+		if ((absTick & 0x10000) != 0):
+			ratio = self.mulShift(ratio, 0x9aa508b5b7a84e1c677de54f3e99bc9)
+		if ((absTick & 0x20000) != 0):
+			ratio = self.mulShift(ratio, 0x5d6af8dedb81196699c329225ee604)
+		if ((absTick & 0x40000) != 0):
+			ratio = self.mulShift(ratio, 0x2216e584f5fa1ea926041bedfe98)
+		if ((absTick & 0x80000) != 0):
+			ratio = self.mulShift(ratio, 0x48a170391f7dc42444e8fa2)
+		
+		if tick > 0:
+			ratio = constants.MaxUint256 / ratio
+		
+		if ratio % constants.Q32 > 0:
+			return ratio / constants.Q32 + 1
+		else:
+			return ratio/constants.Q32
 
 	def getTickAtSqrtRatio(self, sqrtRatioX96):
 		#TODO HOW SHOULD I CORRECTLY CAST THIS AS INT?
 		sqrtRatioX128 = int(sqrtRatioX96) << 32
-		msb = self.mostSignificantBiit(sqrtRatioX128)
+		msb = self.mostSignificantBit(sqrtRatioX128)
 		r = 0
 		if msb >= 128:
 			r = sqrtRatioX128 >> msb  - 127
@@ -128,7 +183,7 @@ class SqrtPriceMath:
 
 		if tickLow == tickHigh:
 			return tickLow
-		elif self.sqrtRatioAtTick(tickHigh) <= sqrtRatioX96:
+		elif self.getSqrtRatioAtTick(tickHigh) <= sqrtRatioX96:
 			return tickHigh
 		else:
 			return tickLow

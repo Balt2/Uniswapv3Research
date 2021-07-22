@@ -12,7 +12,7 @@ usdcETH = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"
 #poolAddress = "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed"
 #poolAddress = "0x6c6bc977e13df9b0de53b251522280bb72383700"
 poolAddress = usdcETH
-numPreviousBlocks = 200
+numPreviousBlocks = 100
 
 
 swapQuery = """

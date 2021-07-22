@@ -54,7 +54,7 @@ def computeSurroundingTicks(activeTickP, tickSpacing, numSurroundingTicks, asc, 
 		else:
 			currentTickProcessed.setLiquidityActive(previousTickProcessed.liquidityActive - previousTickProcessed.liquidityNet)
 
-		print(currentTickProcessed.liquidityActive , ", ", currentTickProcessed.price0)
+		#print(currentTickProcessed.liquidityActive , ", ", currentTickProcessed.price0)
 		processedTicks.append(currentTickProcessed)
 		previousTickProcessed = currentTickProcessed
 
@@ -180,13 +180,13 @@ if activeTickIdx in tickDict:
 	liquidityGross = int((tickDict[activeTickIdx])['liquidityGross'])
 	activeTickProcessed.setLiquidityNet(liquidityNet)
 	activeTickProcessed.setLiquidityGross(liquidityGross)
-print(activeTickProcessed.price0)
-print(activeTickProcessed.tickIdx)
-print(activeTickProcessed.price1)
+print("PRICE 0: ", activeTickProcessed.price0)
+print("Active Tick IDX ", activeTickProcessed.tickIdx)
+print("PRICE 1: ", activeTickProcessed.price1)
 
 
 subsequentTicks = computeSurroundingTicks(activeTickProcessed, tickSpacing, numSurroundingTicks, True, tickDict, token0, token1)
-print(activeTickProcessed.liquidityActive, ", ", activeTickProcessed.price0)
+#print(activeTickProcessed.liquidityActive, ", ", activeTickProcessed.price0)
 previousTicks = computeSurroundingTicks(activeTickProcessed, tickSpacing, numSurroundingTicks, False, tickDict, token0, token1)
 previousTicks.append(activeTickProcessed)
 allTicks = previousTicks + subsequentTicks
@@ -199,29 +199,33 @@ wholePool = Pool(token0, token1, int(poolFeeTier), int(((poolDataQuery['data'])[
 
 x = []
 liq = []
+amountEth = [0]
 sqrtPriceMath = SqrtPriceMath()
+print("DAN: ", sqrtPriceMath.getSqrtRatioAtTick(activeTickIdx))
 for index, tick in enumerate(allTicks):
+	print("Tick Idx: ", tick.tickIdx)
 	x.append(tick.price0)
 	liq.append(tick.liquidityActive)
 
 	#Getting Price information
 	active = (tick.tickIdx == activeTickProcessed.tickIdx)
-	sqrtPriceX96 = sqrtPriceMath.sqrtRatioAtTick(tick.tickIdx)
+	sqrtPriceX96 = sqrtPriceMath.getSqrtRatioAtTick(tick.tickIdx)
 	feeAmount = wholePool.feeTeir
 	mockTicks = [Tick(0, tick.tickIdx - wholePool.tickSpacing, tick.liquidityNet * -1, tick.liquidityGross, token0, token1), tick]
 	tickPool =  Pool(token0, token1, int(poolFeeTier), sqrtPriceX96, tick.liquidityActive, tick.tickIdx, mockTicks, poolAddress, tickSpacing)
 	if index != 0:
-		nextSqrtX96 = sqrtPriceMath.sqrtRatioAtTick(allTicks[index - 1].tickIdx)
+		nextSqrtX96 = sqrtPriceMath.getSqrtRatioAtTick(allTicks[index - 1].tickIdx)
+		print("Next Sqrt Price: ", nextSqrtX96)
 		maxAmountToken0 = CurrencyAmount(token0, constants.MaxUnit128)
 		outputRes0 = tickPool.getOutputAmount(maxAmountToken0, nextSqrtX96)
 		token1Amount = outputRes0[0]
-		print(tick.price1)
-		print(token1Amount.quotient())
-		print(token1Amount.quotient() * tick.price0)
-
+		#print(tick.price1)
+		print("Tokeen 1 amount: ", token1Amount.quotient() / 1000000000000000000)
+		print("Tokeen 2 amount: ", (token1Amount.quotient() * tick.price1)/1000000000000000000)
+		amountEth.append(token1Amount.quotient() / 1000000000000000000)
 
 barWidth = feeTierToBarWidth(poolFeeTier, activeTickProcessed.price0)
-barlist = plt.bar(x, liq, width=barWidth)
+barlist = plt.bar(x, amountEth, width=barWidth)
 barlist[numSurroundingTicks].set_color('r')
 barlist[numSurroundingTicks].set_label(("Current Tick = {} usd".format(round(activeTickProcessed.price0, 2))))
 plt.xlabel("Price {} / {}".format(token0.symbol, token1.symbol))

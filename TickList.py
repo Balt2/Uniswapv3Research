@@ -11,7 +11,7 @@ class TickList:
 
 	def binarySearch(self, tickIdx):
 		l = 0
-		r = len(ticks) - 1
+		r = len(self.ticks) - 1
 		i = 0
 		while True:
 			i = (l  + r) // 2
@@ -19,7 +19,7 @@ class TickList:
 			if self.ticks[i].tickIdx and (i == len(self.ticks) - 1 or self.ticks[i+1].tickIdx > tickIdx):
 				return i
 
-			if self.ticks.tickIdx < tickIdx:
+			if self.ticks[i].tickIdx < tickIdx:
 				l = i + 1
 			else:
 				r = i - 1
@@ -44,7 +44,8 @@ class TickList:
 
 	def nextInitializedTickWithinOneWord(self, tickIdx, lte):
 		compressed = tickIdx // self.tickSpacing
-
+		print(compressed)
+		print(lte)
 		if (lte):
 			wordPos = compressed >> 8
 			minimium = (wordPos << 8) * self.tickSpacing
