@@ -44,8 +44,6 @@ class TickList:
 
 	def nextInitializedTickWithinOneWord(self, tickIdx, lte):
 		compressed = tickIdx // self.tickSpacing
-		print(compressed)
-		print(lte)
 		if (lte):
 			wordPos = compressed >> 8
 			minimium = (wordPos << 8) * self.tickSpacing

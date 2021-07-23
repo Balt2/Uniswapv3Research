@@ -12,11 +12,11 @@ usdcETH = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"
 #poolAddress = "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed"
 #poolAddress = "0x6c6bc977e13df9b0de53b251522280bb72383700"
 poolAddress = usdcETH
-numPreviousBlocks = 100
+numPreviousBlocks = 10
 
 
 swapQuery = """
-	query pool($poolAddress: String!) {
+	query pool($poolAddress: String!, $numPreviousBlocks: Int) {
 	    pool(id: $poolAddress) {
 	      tick
 	      token0 {
@@ -33,7 +33,7 @@ swapQuery = """
 	      sqrtPrice
 	      liquidity
 	      swaps(
-	      	first: 40
+	      	first: $numPreviousBlocks
 	      	orderBy: timestamp
 	      	orderDirection: desc
 	      ){
@@ -51,47 +51,54 @@ swapQuery = """
   }
 """
 
-positionQuery = """
 
-"""
-
-
-swapData = client.execute(query=swapQuery, variables={"poolAddress": poolAddress})
+def getBlockArray():
+	swapData = client.execute(query=swapQuery, variables={"poolAddress": poolAddress, "numPreviousBlocks": numPreviousBlocks})
 
 
-token0 = Token(swapData['data']['pool']['token0']['id'], swapData['data']['pool']['token0']['symbol'], int(swapData['data']['pool']['token0']['decimals']) )
+	token0 = Token(swapData['data']['pool']['token0']['id'], swapData['data']['pool']['token0']['symbol'], int(swapData['data']['pool']['token0']['decimals']) )
 
-token1 = Token(swapData['data']['pool']['token1']['id'], swapData['data']['pool']['token1']['symbol'], int(swapData['data']['pool']['token1']['decimals']) )
+	token1 = Token(swapData['data']['pool']['token1']['id'], swapData['data']['pool']['token1']['symbol'], int(swapData['data']['pool']['token1']['decimals']) )
 
-swapDataArray = swapData['data']['pool']['swaps']
+	swapDataArray = swapData['data']['pool']['swaps']
 
-blockDict = {}
+	blockDict = {}
 
-for swap in swapDataArray:
-	blockNumber = int(swap['transaction']['blockNumber'])
-	if blockNumber in blockDict:
-		newSwap = Swap(token0, token1, float(swap['amountUSD']), float(swap['amount0']), float(swap['amount1']), float(swap['transaction']['gasPrice']), int(swap['tick']))
-		blockDict[blockNumber].addSwap(newSwap)
-	else:
-		newSwap = Swap(token0, token1, float(swap['amountUSD']), float(swap['amount0']), float(swap['amount1']), float(swap['transaction']['gasPrice']), int(swap['tick']))
-		blockDict[blockNumber] = Block(newSwap, blockNumber, int(swap['transaction']['timestamp']))
+	for swap in swapDataArray:
+		blockNumber = int(swap['transaction']['blockNumber'])
+		if blockNumber in blockDict:
+			newSwap = Swap(token0, token1, float(swap['amountUSD']), float(swap['amount0']), float(swap['amount1']), float(swap['transaction']['gasPrice']), int(swap['tick']))
+			blockDict[blockNumber].addSwap(newSwap)
+		else:
+			newSwap = Swap(token0, token1, float(swap['amountUSD']), float(swap['amount0']), float(swap['amount1']), float(swap['transaction']['gasPrice']), int(swap['tick']))
+			blockDict[blockNumber] = Block(newSwap, blockNumber, int(swap['transaction']['timestamp']))
 
-blockNums = list(blockDict.keys())
-blockNums.sort()
+	blockNums = list(blockDict.keys())
+	blockNums.sort()
 
-x = []
-totalusd = []
-averageGas = []
+	blocks = []
+	for blockIndex in blockNums:
+		block = blockDict[blockIndex]
+		blocks.append(block)
 
-
-for blockIndex in blockNums:
-	block = blockDict[blockIndex]
-	x.append(str(block.blockNumber))
-	totalusd.append(block.totalUSD)
-	averageGas.append(block.averageGas)
-	print(block.blockNumber, " ", block.totalUSD)
+	return blocks
 
 
+# blocks = getBlockArray()
+
+# x = []
+# totalusd = []
+# averageGas = []
+
+
+# for block in blocks:
+# 	x.append(str(block.blockNumber))
+# 	totalusd.append(block.totalUSD)
+# 	averageGas.append(block.averageGas)
+# 	print(block.blockNumber, " ", block.totalUSD, " ", block.timeStamp)
+
+
+#DONT USE
 # width = .8
 # fig, ax = plt.subplots()
 
@@ -104,14 +111,21 @@ for blockIndex in blockNums:
 # # Plot exponential sequence, set scale to logarithmic and change tick color
 # ax2.bar(list(map(lambda x : x + width/2, x)), averageGas, color='green', width = width, label = "Average Gas")
 # ax2.tick_params(axis='y', labelcolor='green10)10
-plt.figure(figsize=(12,8))
-plt.bar(x, totalusd, width=.8, label="Total USD")
-plt.xlabel("Block Number")
-plt.ylabel("Total USD")
-plt.title("Total Swap Value For Each Block")
-plt.xticks(fontsize=7, rotation=75)
-plt.legend()
-plt.show()
+#DONT USE
+
+
+
+
+
+
+# plt.figure(figsize=(12,8))
+# plt.bar(x, totalusd, width=.8, label="Total USD")
+# plt.xlabel("Block Number")
+# plt.ylabel("Total USD")
+# plt.title("Total Swap Value For Each Block")
+# plt.xticks(fontsize=7, rotation=75)
+# plt.legend()
+# plt.show()
 
 
 

@@ -8,7 +8,7 @@ import constants
 
 client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/yekta/uniswap-v3-with-fees-and-amounts")
 
-numSurroundingTicks = 20
+numSurroundingTicks = 10
 
 #https://github.com/Uniswap/uniswap-v3-sdk/blob/aeb1b09/src/utils/tickMath.ts#L26
 minTick = -887272
@@ -85,163 +85,172 @@ def feeTierToBarWidth(feeTier, currentPrice):
 	width = abs(currentPrice - currentPrice*(1 + feeTierInt*.000001) )
 	return width
 
+def createPoolWithTicks():
+	poolQuery = """
+		query pool($poolAddress: String!) {
+		    pool(id: $poolAddress) {
+		      tick
+		      token0 {
+		        symbol
+		        id
+		        decimals
+		      }
+		      token1 {
+		        symbol
+		        id
+		        decimals
+		      }
+		      feeTier
+		      sqrtPrice
+		      liquidity
+		      totalValueLockedToken0
+	          totalValueLockedToken1
+	          totalValueLockedUSD
+		    }
+	  }
+	"""
 
-poolQuery = """
-	query pool($poolAddress: String!) {
-	    pool(id: $poolAddress) {
-	      tick
-	      token0 {
-	        symbol
-	        id
-	        decimals
-	      }
-	      token1 {
-	        symbol
-	        id
-	        decimals
-	      }
-	      feeTier
-	      sqrtPrice
-	      liquidity
-	      totalValueLockedToken0
-          totalValueLockedToken1
-          totalValueLockedUSD
-	    }
-  }
-"""
-
-souroundingTicks = """
-	query souroundingTicks($poolAddress: String, $tickIdxUpperBound: Int, $tickIdxLowerBound: Int, $skip: Int){
-		ticks(
-			first: 1000
-			skip: $skip
-			where: {poolAddress: $poolAddress, tickIdx_lte: $tickIdxUpperBound, tickIdx_gte: $tickIdxLowerBound}
-		){
-			tickIdx
-			liquidityGross
-			liquidityNet
-			price0
-			price1
-			volumeToken0
-			volumeToken1
-			volumeUSD
-			untrackedVolumeUSD
-			liquidityProviderCount
-			feesUSD
-			feeGrowthOutside1X128
+	souroundingTicks = """
+		query souroundingTicks($poolAddress: String, $tickIdxUpperBound: Int, $tickIdxLowerBound: Int, $skip: Int){
+			ticks(
+				first: 1000
+				skip: $skip
+				where: {poolAddress: $poolAddress, tickIdx_lte: $tickIdxUpperBound, tickIdx_gte: $tickIdxLowerBound}
+			){
+				tickIdx
+				liquidityGross
+				liquidityNet
+				price0
+				price1
+				volumeToken0
+				volumeToken1
+				volumeUSD
+				untrackedVolumeUSD
+				liquidityProviderCount
+				feesUSD
+				feeGrowthOutside1X128
+			}
 		}
-	}
 
-"""
-
+	"""
 
 
-poolDataQuery = client.execute(query=poolQuery, variables={"poolAddress": poolAddress} )
-print(poolDataQuery)
-poolCurrentTick = int(((poolDataQuery['data'])['pool'])['tick'])
-poolFeeTier = ((poolDataQuery['data'])['pool'])['feeTier']
-tickSpacing = feeTierToSpacing(poolFeeTier)
+	#Pull Pool Data
+	poolDataQuery = client.execute(query=poolQuery, variables={"poolAddress": poolAddress} )
+	#print(poolDataQuery)
+	poolCurrentTick = int(((poolDataQuery['data'])['pool'])['tick'])
+	poolFeeTier = ((poolDataQuery['data'])['pool'])['feeTier']
+	tickSpacing = feeTierToSpacing(poolFeeTier)
 
-activeTickIdx = (poolCurrentTick // tickSpacing) *  tickSpacing
+	#Calculating Tick information
+	activeTickIdx = (poolCurrentTick // tickSpacing) *  tickSpacing
 
-tickIdxLowerBound = activeTickIdx - numSurroundingTicks * tickSpacing
-tickIdxUpperBound = activeTickIdx + numSurroundingTicks * tickSpacing
-
-print(activeTickIdx)
-print(tickSpacing)
-print(tickIdxUpperBound)
-print(tickIdxLowerBound)
+	tickIdxLowerBound = activeTickIdx - numSurroundingTicks * tickSpacing
+	tickIdxUpperBound = activeTickIdx + numSurroundingTicks * tickSpacing
 
 
 
-ticksResult = client.execute(query=souroundingTicks, variables={"poolAddress": poolAddress, "skip": 1, "tickIdxUpperBound": tickIdxUpperBound, "tickIdxLowerBound": tickIdxLowerBound })
-print(ticksResult)
-tickDict = tickDataToDict((ticksResult['data'])['ticks'])
+	ticksResult = client.execute(query=souroundingTicks, variables={"poolAddress": poolAddress, "skip": 1, "tickIdxUpperBound": tickIdxUpperBound, "tickIdxLowerBound": tickIdxLowerBound })
+	#print(ticksResult)
+	tickDict = tickDataToDict((ticksResult['data'])['ticks'])
 
-token0 = Token(poolDataQuery['data']['pool']['token0']['id'], poolDataQuery['data']['pool']['token0']['symbol'], int(poolDataQuery['data']['pool']['token0']['decimals']) )
+	token0 = Token(poolDataQuery['data']['pool']['token0']['id'], poolDataQuery['data']['pool']['token0']['symbol'], int(poolDataQuery['data']['pool']['token0']['decimals']) )
 
-token1 = Token(poolDataQuery['data']['pool']['token1']['id'], poolDataQuery['data']['pool']['token1']['symbol'], int(poolDataQuery['data']['pool']['token1']['decimals']) )
+	token1 = Token(poolDataQuery['data']['pool']['token1']['id'], poolDataQuery['data']['pool']['token1']['symbol'], int(poolDataQuery['data']['pool']['token1']['decimals']) )
 
-activeTickIdxForPrice = activeTickIdx
-if activeTickIdxForPrice < minTick:
-	activeTickIdxForPrice = minTick
+	if activeTickIdx < minTick:
+		activeTickIdx = minTick
 
-if  activeTickIdxForPrice > maxTick:
-	activeTickIdxForPrice = maxTick
-
-
-#Active Tick Processed
-liquidityActive = int(((poolDataQuery['data'])['pool'])['liquidity'])
-
-activeTickProcessed = Tick(liquidityActive, activeTickIdx, 0,0, token0, token1)
-
-if activeTickIdx in tickDict:
-	liquidityNet = int((tickDict[activeTickIdx])['liquidityNet'])
-	liquidityGross = int((tickDict[activeTickIdx])['liquidityGross'])
-	activeTickProcessed.setLiquidityNet(liquidityNet)
-	activeTickProcessed.setLiquidityGross(liquidityGross)
-print("PRICE 0: ", activeTickProcessed.price0)
-print("Active Tick IDX ", activeTickProcessed.tickIdx)
-print("PRICE 1: ", activeTickProcessed.price1)
+	if  activeTickIdx > maxTick:
+		activeTickIdx = maxTick
 
 
-subsequentTicks = computeSurroundingTicks(activeTickProcessed, tickSpacing, numSurroundingTicks, True, tickDict, token0, token1)
-#print(activeTickProcessed.liquidityActive, ", ", activeTickProcessed.price0)
-previousTicks = computeSurroundingTicks(activeTickProcessed, tickSpacing, numSurroundingTicks, False, tickDict, token0, token1)
-previousTicks.append(activeTickProcessed)
-allTicks = previousTicks + subsequentTicks
+	#Active Tick Processed
+	liquidityActive = int(((poolDataQuery['data'])['pool'])['liquidity'])
+
+	activeTickProcessed = Tick(liquidityActive, activeTickIdx, 0,0, token0, token1)
+
+	if activeTickIdx in tickDict:
+		liquidityNet = int((tickDict[activeTickIdx])['liquidityNet'])
+		liquidityGross = int((tickDict[activeTickIdx])['liquidityGross'])
+		activeTickProcessed.setLiquidityNet(liquidityNet)
+		activeTickProcessed.setLiquidityGross(liquidityGross)
+	# print("PRICE 0: ", activeTickProcessed.price0)
+	# print("Active Tick IDX ", activeTickProcessed.tickIdx)
+	# print("PRICE 1: ", activeTickProcessed.price1)
 
 
-wholePool = Pool(token0, token1, int(poolFeeTier), int(((poolDataQuery['data'])['pool'])['sqrtPrice']), liquidityActive, activeTickProcessed.tickIdx, allTicks,poolAddress, tickSpacing )
+	subsequentTicks = computeSurroundingTicks(activeTickProcessed, tickSpacing, numSurroundingTicks, True, tickDict, token0, token1)
+	#print(activeTickProcessed.liquidityActive, ", ", activeTickProcessed.price0)
+	previousTicks = computeSurroundingTicks(activeTickProcessed, tickSpacing, numSurroundingTicks, False, tickDict, token0, token1)
+	previousTicks.append(activeTickProcessed)
+	allTicks = previousTicks + subsequentTicks
 
 
-
-
-x = []
-liq = []
-amountEth = [0]
-sqrtPriceMath = SqrtPriceMath()
-print("DAN: ", sqrtPriceMath.getSqrtRatioAtTick(activeTickIdx))
-for index, tick in enumerate(allTicks):
-	print("Tick Idx: ", tick.tickIdx)
-	x.append(tick.price0)
-	liq.append(tick.liquidityActive)
-
-	#Getting Price information
-	active = (tick.tickIdx == activeTickProcessed.tickIdx)
-	sqrtPriceX96 = sqrtPriceMath.getSqrtRatioAtTick(tick.tickIdx)
-	feeAmount = wholePool.feeTeir
-	mockTicks = [Tick(0, tick.tickIdx - wholePool.tickSpacing, tick.liquidityNet * -1, tick.liquidityGross, token0, token1), tick]
-	tickPool =  Pool(token0, token1, int(poolFeeTier), sqrtPriceX96, tick.liquidityActive, tick.tickIdx, mockTicks, poolAddress, tickSpacing)
-	if index != 0:
-		nextSqrtX96 = sqrtPriceMath.getSqrtRatioAtTick(allTicks[index - 1].tickIdx)
-		print("Next Sqrt Price: ", nextSqrtX96)
-		maxAmountToken0 = CurrencyAmount(token0, constants.MaxUnit128)
-		outputRes0 = tickPool.getOutputAmount(maxAmountToken0, nextSqrtX96)
-		token1Amount = outputRes0[0]
-		#print(tick.price1)
-		print("Tokeen 1 amount: ", token1Amount.quotient() / 1000000000000000000)
-		print("Tokeen 2 amount: ", (token1Amount.quotient() * tick.price1)/1000000000000000000)
-		amountEth.append(token1Amount.quotient() / 1000000000000000000)
-
-barWidth = feeTierToBarWidth(poolFeeTier, activeTickProcessed.price0)
-barlist = plt.bar(x, amountEth, width=barWidth)
-barlist[numSurroundingTicks].set_color('r')
-barlist[numSurroundingTicks].set_label(("Current Tick = {} usd".format(round(activeTickProcessed.price0, 2))))
-plt.xlabel("Price {} / {}".format(token0.symbol, token1.symbol))
-plt.ylabel("Total Liquidity")
-plt.title("{} / {} liquidity locked".format(token0.symbol, token1.symbol))
-plt.legend()
-plt.show()
+	wholePool = Pool(token0, token1, int(poolFeeTier), int(((poolDataQuery['data'])['pool'])['sqrtPrice']), liquidityActive, activeTickProcessed.tickIdx, allTicks,poolAddress, tickSpacing )
 
 
 
 
 
+	sqrtPriceMath = SqrtPriceMath()
+
+	#Computing Amount of token 0/1 for each tick. Based on https://github.com/Uniswap/uniswap-v3-info/blob/836a38d236595e0ac18ae470102556f55b1da788/src/components/DensityChart/index.tsx#L157
+	for index, tick in enumerate(wholePool.tickDataProvider.ticks):
+
+		#Getting Price information
+		active = (tick.tickIdx == activeTickProcessed.tickIdx)
+
+		sqrtPriceX96 = sqrtPriceMath.getSqrtRatioAtTick(tick.tickIdx)
+		feeAmount = wholePool.feeTeir
+		mockTicks = [Tick(0, tick.tickIdx - wholePool.tickSpacing, tick.liquidityNet * -1, tick.liquidityGross, token0, token1), tick]
+		tickPool =  Pool(token0, token1, int(poolFeeTier), sqrtPriceX96, tick.liquidityActive, tick.tickIdx, mockTicks, poolAddress, tickSpacing)
+		if index != 0:
+			nextSqrtX96 = sqrtPriceMath.getSqrtRatioAtTick(wholePool.tickDataProvider.ticks[index - 1].tickIdx)
+			maxAmountToken0 = CurrencyAmount(token0, constants.MaxUnit128)
+			outputRes0 = tickPool.getOutputAmount(maxAmountToken0, nextSqrtX96)
+			token1Amount = outputRes0[0]
+			wholePool.tickDataProvider.ticks[index - 1].setTvl(token1Amount.quotient() / 1000000000000000000, False)
+			wholePool.tickDataProvider.ticks[index - 1].setTvl(token1Amount.quotient() / 1000000000000000000 * tick.price0, True)
+			
+
+	#Taking into account the first Tick which we can't get a value for?
+	wholePool.tickDataProvider.ticks[-1].setTvl(0, False)	
+	wholePool.tickDataProvider.ticks[-1].setTvl(0, True)
+	return wholePool, poolFeeTier
+
+def getActiveTick():
+	pool, poolFeeTeir = createPoolWithTicks()
+	return pool.tickDataProvider.ticks[numSurroundingTicks]
+
+
+
+
+# pool, poolFeeTier = createPoolWithTicks()
+
+# x = []
+# liq = []
+# amountEth = []
+# for tick in pool.tickDataProvider.ticks:
+# 	amountEth.append(tick.tvlToken1)
+# 	x.append(tick.price0)
+# 	liq.append(tick.liquidityActive)
+# 	print("Price: ", tick.price0)
+# 	print("TVL Token 1: ", tick.tvlToken1)
+# 	print("TVL Token 0: ", tick.tvlToken0)
+# #Building Graph
+
+# barWidth = feeTierToBarWidth(poolFeeTier, pool.tickDataProvider.ticks[numSurroundingTicks].price0)
+# barlist = plt.bar(x, amountEth, width=barWidth)
+# barlist[numSurroundingTicks].set_color('r')
+# barlist[numSurroundingTicks].set_label(("Current Tick = {} usd".format(round(pool.tickDataProvider.ticks[numSurroundingTicks].price0, 2))))
+# plt.xlabel("Price {} / {}".format(pool.token0.symbol, pool.token1.symbol))
+# plt.ylabel("Total Liquidity")
+# plt.title("{} / {} liquidity locked".format(pool.token0.symbol, pool.token1.symbol))
+# plt.legend()
+# plt.show()
 
 
 
 
 
-
-#print(poolDataQuery)
