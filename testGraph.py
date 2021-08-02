@@ -6,7 +6,7 @@ from TickList import *
 import constants
 
 
-client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/yekta/uniswap-v3-with-fees-and-amounts")
+client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3")
 
 numSurroundingTicks = 10
 
@@ -17,6 +17,7 @@ maxTick = 887272
 usdcUSDT = "0x7858e59e0c01ea06df3af3d20ac7b0003275d4bf"
 usdcETH = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"
 wbtcETH = "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed"
+usdtETH = "0x4e68ccd3e89f51c3074ca5072bbac773960dfa36"
 daiUSDC = "0x6c6bc977e13df9b0de53b251522280bb72383700"
 mmUSDC = "0x84383fb05f610222430f69727aa638f8fdbf5cc1"
 shibETH = "0x5764a6f2212d502bc5970f9f129ffcd61e5d7563"
@@ -25,6 +26,10 @@ shibETH = "0x5764a6f2212d502bc5970f9f129ffcd61e5d7563"
 #poolAddress = "0x6c6bc977e13df9b0de53b251522280bb72383700"
 poolAddress = usdcETH
 
+if poolAddress == wbtcETH or poolAddress == usdcETH:
+	divisionFactor = 1000000000000000000
+elif poolAddress == usdtETH:
+	divisionFactor = 1000000
 
 
 
@@ -136,7 +141,13 @@ def createPoolWithTicks():
 
 
 	#Pull Pool Data
-	poolDataQuery = client.execute(query=poolQuery, variables={"poolAddress": poolAddress} )
+	try:
+		poolDataQuery = client.execute(query=poolQuery, variables={"poolAddress": poolAddress} )
+	except: 
+		return "ERROR", "ERROR IN TEST GRAPH, Pool Query", "ERROR"
+
+	if 'data' not in poolDataQuery.keys():
+		return "ERROR", "Unkown Error", "ERROR"
 	#print(poolDataQuery)
 	poolCurrentTick = int(((poolDataQuery['data'])['pool'])['tick'])
 	poolFeeTier = ((poolDataQuery['data'])['pool'])['feeTier']
@@ -149,8 +160,13 @@ def createPoolWithTicks():
 	tickIdxUpperBound = activeTickIdx + numSurroundingTicks * tickSpacing
 
 
+	try:
+		ticksResult = client.execute(query=souroundingTicks, variables={"poolAddress": poolAddress, "skip": 1, "tickIdxUpperBound": tickIdxUpperBound, "tickIdxLowerBound": tickIdxLowerBound })
+	except:
+		return "ERROR", "ERROR IN TEST GRAPH, Tick Result", "ERROR"
 
-	ticksResult = client.execute(query=souroundingTicks, variables={"poolAddress": poolAddress, "skip": 1, "tickIdxUpperBound": tickIdxUpperBound, "tickIdxLowerBound": tickIdxLowerBound })
+	if 'data' not in ticksResult.keys():
+		return "ERROR", "Unkown Error", "ERROR"
 	#print(ticksResult)
 	tickDict = tickDataToDict((ticksResult['data'])['ticks'])
 
@@ -188,12 +204,13 @@ def createPoolWithTicks():
 
 
 	wholePool = Pool(token0, token1, int(poolFeeTier), int(((poolDataQuery['data'])['pool'])['sqrtPrice']), liquidityActive, activeTickProcessed.tickIdx, allTicks,poolAddress, tickSpacing )
-
+	currentPriceAtCurrentTick = wholePool.priceAtTick(poolCurrentTick)
 
 
 
 
 	sqrtPriceMath = SqrtPriceMath()
+
 
 	#Computing Amount of token 0/1 for each tick. Based on https://github.com/Uniswap/uniswap-v3-info/blob/836a38d236595e0ac18ae470102556f55b1da788/src/components/DensityChart/index.tsx#L157
 	for index, tick in enumerate(wholePool.tickDataProvider.ticks):
@@ -210,23 +227,26 @@ def createPoolWithTicks():
 			maxAmountToken0 = CurrencyAmount(token0, constants.MaxUnit128)
 			outputRes0 = tickPool.getOutputAmount(maxAmountToken0, nextSqrtX96)
 			token1Amount = outputRes0[0]
-			wholePool.tickDataProvider.ticks[index - 1].setTvl(token1Amount.quotient() / 1000000000000000000, False)
-			wholePool.tickDataProvider.ticks[index - 1].setTvl(token1Amount.quotient() / 1000000000000000000 * tick.price0, True)
+			wholePool.tickDataProvider.ticks[index - 1].setTvl(token1Amount.quotient() / divisionFactor, False)
+			wholePool.tickDataProvider.ticks[index - 1].setTvl(token1Amount.quotient() / divisionFactor * tick.price0, True)
 			
 
 	#Taking into account the first Tick which we can't get a value for?
 	wholePool.tickDataProvider.ticks[-1].setTvl(0, False)	
 	wholePool.tickDataProvider.ticks[-1].setTvl(0, True)
-	return wholePool, poolFeeTier
+	return wholePool, poolFeeTier, currentPriceAtCurrentTick
 
 def getActiveTick():
-	pool, poolFeeTeir = createPoolWithTicks()
-	return pool.tickDataProvider.ticks[numSurroundingTicks]
+	pool, poolFeeTeir, currentPrice = createPoolWithTicks()
+	if pool == "ERROR":
+		return "ERROR", "ERROR"
+	else:
+		return pool.tickDataProvider.ticks[numSurroundingTicks], currentPrice
 
 
 
-
-# pool, poolFeeTier = createPoolWithTicks()
+#For Graph
+# pool, poolFeeTier, curPrice = createPoolWithTicks()
 
 # x = []
 # liq = []
@@ -235,7 +255,9 @@ def getActiveTick():
 # 	amountEth.append(tick.tvlToken1)
 # 	x.append(tick.price0)
 # 	liq.append(tick.liquidityActive)
-# 	print("Price: ", tick.price0)
+# 	print("Price 0: ", tick.price0)
+# 	print("Price 1: ", tick.price1)
+
 # 	print("TVL Token 1: ", tick.tvlToken1)
 # 	print("TVL Token 0: ", tick.tvlToken0)
 # #Building Graph

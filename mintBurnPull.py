@@ -1,6 +1,6 @@
 from python_graphql_client import GraphqlClient
-client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/yekta/uniswap-v3-with-fees-and-amounts")
-
+#client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/yekta/uniswap-v3-with-fees-and-amounts")
+client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3")
 
 usdcUSDT = "0x7858e59e0c01ea06df3af3d20ac7b0003275d4bf"
 usdcETH = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"
@@ -20,20 +20,22 @@ def getTransactionFee(gasPrice, gasLimit):
 	gasPriceEth = float(gasPrice) * 1/(10 ** 18)
 	return gasPriceEth * float(gasLimit)
 
-
-def getAverageTransactionFee():
-
-
+def getMints(direction, numberEvents, timeStampGTE = 0, timeStampLT = 1720169800):
 	getMints = """
-			query getMints($poolAddress: String!, $numberEvents: Int) {
+			query getMints($poolAddress: String!, $numberEvents: Int, $direction: String, $timeStampGTE: Int, $timeStampLT: Int) {
 			    pool(id: $poolAddress) {
 				mints(
 					first: $numberEvents
 					skip: $skip
 					orderBy: timestamp
-		      		orderDirection: desc
+		      		orderDirection: $direction
+		      		where: {timestamp_gte: $timeStampGTE, timestamp_lt: $timeStampLT}
 				){
+					id
 					timestamp
+					owner
+					sender
+					origin
 					amount
 					amount0
 					amount1
@@ -52,16 +54,31 @@ def getAverageTransactionFee():
 
 		"""
 
+	try:
+		mintResults = client.execute(query=getMints, variables={"poolAddress": poolAddress, "numberEvents": numberEvents, "skip": 1, "direction": direction, "timeStampGTE": timeStampGTE, "timeStampLT": timeStampLT})
+	except:
+		return "ERROR GETTING MINT DATA"
+
+	if 'data' not in mintResults.keys():
+		return "ERROR"
+
+	return mintResults
+
+def getBurns(direction, numberEvents, timeStampGTE = 0, timeStampLT = 1720169800):
 	getBurns = """
-			query getBurns($poolAddress: String!, $numberEvents: Int) {
+			query getBurns($poolAddress: String!, $numberEvents: Int, $direction: String, $timeStampGTE: Int, $timeStampLT: Int) {
 			    pool(id: $poolAddress) {
 				burns(
 					first: $numberEvents
 					skip: $skip
 					orderBy: timestamp
-		      		orderDirection: desc
+		      		orderDirection: $direction
+		      		where: {timestamp_gte: $timeStampGTE, timestamp_lt: $timeStampLT}
+
 				){
 					timestamp
+					owner
+					origin
 					amount
 					amount0
 					amount1
@@ -79,12 +96,19 @@ def getAverageTransactionFee():
 		}
 
 		"""
+	try:
+		burnResults = client.execute(query=getBurns, variables={"poolAddress": poolAddress, "numberEvents": numberEvents, "skip": 1, "direction": direction, "timeStampGTE": timeStampGTE, "timeStampLT": timeStampLT})
+	except:
+		return "ERROR"
 
-	mintResults = client.execute(query=getMints, variables={"poolAddress": poolAddress, "numberEvents": numberPreviousEvents//2, "skip": 1})
+	if 'data' not in burnResults.keys():
+		return "ERROR"
 
-	burnResults = client.execute(query=getBurns, variables={"poolAddress": poolAddress, "numberEvents": numberPreviousEvents//2, "skip": 1})
+	return burnResults
 
-
+def getAverageTransactionFee():
+	mintResults = getMints("desc", numberPreviousEvents//2)
+	burnResults = getBurns("desc", numberPreviousEvents//2)
 	mintResultsArray = mintResults['data']['pool']['mints']
 	burnResultsArray = burnResults['data']['pool']['burns']
 	totalTransactionFees = 0

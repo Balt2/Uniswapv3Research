@@ -10,9 +10,13 @@ class Tick:
 		self.tickIdx = int(tickIdx)
 		self.liquidityGross = liquidityGross
 		self.price0 = (10 ** (token1.decimals - token0.decimals)) / (1.0001 ** (tickIdx))
-		self.price1  = (1.0001 ** tickIdx) * (10 ** (token0.decimals - token1.decimals))
+		self.price1 = (1.0001 ** tickIdx) * (10 ** (token0.decimals - token1.decimals))
 		#print(token0.decimals)
 		#print(token1.decimals)
+		self.amount = 0
+		self.amount0 = 0
+		self.amount1 = 0
+		self.amountUSD = 0
 
 	def setLiquidityGross(self, l):
 		self.liquidityGross = l
@@ -28,6 +32,18 @@ class Tick:
 			self.tvlToken0 = val
 		else:
 			self.tvlToken1 = val
+
+	def updateAmount(self, amount):
+		self.amount += amount
+
+	def updateAmount0(self, amount):
+		self.amount0 += amount
+
+	def updateAmount1(self, amount):
+		self.amount1 += amount
+
+	def updateAmountUSD(self, amount):
+		self.amountUSD += amount
 
 class Token:
 	def __init__(self, address, symbol, decimals):
@@ -48,7 +64,7 @@ class Transaction:
 		self.gasUsed = gasUsed
 
 class Swap:
-	def __init__(self, token0, token1, amountUSD, amountToken0, amountToken1, gasPrice, tick):
+	def __init__(self, token0, token1, amountUSD, amountToken0, amountToken1, gasPrice, tick, blockNumber = 0):
 		self.token0 = token0
 		self.token1 = token1
 		self.amountUSD = amountUSD
@@ -56,6 +72,9 @@ class Swap:
 		self.amountToken1 = amountToken1
 		self.gasPrice = gasPrice
 		self.tick = tick
+
+		#Use for V2
+		self.blockNumber = blockNumber 
 
 class Block:
 	def __init__(self, swap, blockNumber, timeStamp): #AverageGas should come from the avreage gas on the whole block
@@ -79,7 +98,7 @@ class Block:
 		self.averageGas = float(gasSum /len(self.swaps))
 
 class Pool:
-	def __init__(self, token0, token1, feeTeir, sqrtRatioX96,liquidity, tick, ticks, address, tickSpacing, activeTick = 0):
+	def __init__(self, token0, token1, feeTeir, sqrtRatioX96,liquidity, tick, ticks, address, tickSpacing):
 		self.sqrtPriceMath = SqrtPriceMath()
 		self.address = address
 		self.feeTeir = feeTeir
@@ -92,8 +111,7 @@ class Pool:
 		self.tickCurrentSqrtRatioX96 = self.sqrtPriceMath.getSqrtRatioAtTick(tick)
 		self.nextTickSqrtRatioX96 = self.sqrtPriceMath.getSqrtRatioAtTick(tick + 1)
 		self.tickSpacing = tickSpacing
-		self.activeTick = activeTick
-		
+
 
 
 	def getToken0Price(self):
@@ -233,6 +251,8 @@ class Pool:
 
 		return (CurrencyAmount(outputToken, outputAmount*-1), Pool(self.token0, self.token1, self.feeTeir, sqrtRatioX96, liquidity, tickCurrent, self.tickDataProvider.ticks, self.address, self.tickSpacing ))
 
+	def priceAtTick(self, tick):
+		return (10 ** (self.token1.decimals - self.token0.decimals)) / (1.0001 ** (tick))
 
 
 class Price:

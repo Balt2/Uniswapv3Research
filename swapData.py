@@ -4,14 +4,19 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure
 
 
-client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/yekta/uniswap-v3-with-fees-and-amounts")
+#The API used to connect to the Graph.
+#client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/yekta/uniswap-v3-with-fees-and-amounts")
+client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3")
 
+#The Addresses of uniswap v3 pools
 usdcUSDT = "0x7858e59e0c01ea06df3af3d20ac7b0003275d4bf"
 usdcETH = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"
 #poolAddress = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"
 #poolAddress = "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed"
 #poolAddress = "0x6c6bc977e13df9b0de53b251522280bb72383700"
 poolAddress = usdcETH
+
+#Number of previous blocks we want to retrive swap data
 numPreviousBlocks = 10
 
 
@@ -53,13 +58,25 @@ swapQuery = """
 
 
 def getBlockArray():
-	swapData = client.execute(query=swapQuery, variables={"poolAddress": poolAddress, "numPreviousBlocks": numPreviousBlocks})
 
+	#Make call to API
+	try:	
+		swapData = client.execute(query=swapQuery, variables={"poolAddress": poolAddress, "numPreviousBlocks": numPreviousBlocks})
+	except:
+		return "ERROR", "Unkown Error"
 
+	if 'data' not in swapData.keys():
+		return "ERROR", "Unkown Error"
+
+	#Get latest block number
+	latestBlock = swapData['data']['pool']['swaps'][0]['transaction']['blockNumber']
+
+	#Create tokens
 	token0 = Token(swapData['data']['pool']['token0']['id'], swapData['data']['pool']['token0']['symbol'], int(swapData['data']['pool']['token0']['decimals']) )
 
 	token1 = Token(swapData['data']['pool']['token1']['id'], swapData['data']['pool']['token1']['symbol'], int(swapData['data']['pool']['token1']['decimals']) )
 
+	#Get the swap array
 	swapDataArray = swapData['data']['pool']['swaps']
 
 	blockDict = {}
@@ -81,10 +98,12 @@ def getBlockArray():
 		block = blockDict[blockIndex]
 		blocks.append(block)
 
-	return blocks
+	return blocks, int(latestBlock)
 
 
-# blocks = getBlockArray()
+
+#FOR GRAPH
+# blocks, l = getBlockArray()
 
 # x = []
 # totalusd = []
@@ -96,24 +115,6 @@ def getBlockArray():
 # 	totalusd.append(block.totalUSD)
 # 	averageGas.append(block.averageGas)
 # 	print(block.blockNumber, " ", block.totalUSD, " ", block.timeStamp)
-
-
-#DONT USE
-# width = .8
-# fig, ax = plt.subplots()
-
-# ax.bar(list(map(lambda x : x - width/2, x)), totalusd, color='red', width = width, label = "Total USD")
-# ax.tick_params(axis='y', labelcolor='red')
-
-# # Generate a new Axes instance, on the twin-X axes (same position)
-# ax2 = ax.twinx()
-
-# # Plot exponential sequence, set scale to logarithmic and change tick color
-# ax2.bar(list(map(lambda x : x + width/2, x)), averageGas, color='green', width = width, label = "Average Gas")
-# ax2.tick_params(axis='y', labelcolor='green10)10
-#DONT USE
-
-
 
 
 
