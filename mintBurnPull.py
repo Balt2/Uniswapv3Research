@@ -57,7 +57,7 @@ def getMints(direction, numberEvents, timeStampGTE = 0, timeStampLT = 1720169800
 	try:
 		mintResults = client.execute(query=getMints, variables={"poolAddress": poolAddress, "numberEvents": numberEvents, "skip": 1, "direction": direction, "timeStampGTE": timeStampGTE, "timeStampLT": timeStampLT})
 	except:
-		return "ERROR GETTING MINT DATA"
+		return "ERROR"
 
 	if 'data' not in mintResults.keys():
 		return "ERROR"
