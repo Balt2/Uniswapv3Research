@@ -22,12 +22,12 @@ mintDF = createHistoricalData.getMintDataFrame()
 for index, mint in mintDF.iterrows():
 	tickUpper = mint['tickUpper']
 	tickLower = mint['tickLower']
-	numTicksCovered = (tickUpper - tickLower)/60
+	numTicksCovered = 1 #(tickUpper - tickLower)/60
 	amountMint = float(mint['amount']) / numTicksCovered
 	amount0Mint = float(mint['amount0']) / numTicksCovered
 	amount1Mint = float(mint['amount1']) / numTicksCovered
 	amountUSDMint = float(mint['amountUSD']) / numTicksCovered
-	for i in range(tickUpper, tickLower, -60):
+	for i in range(tickUpper, tickLower + 1, -60):
 		if i in tickDict.keys():
 			tickDict[i].updateAmount(amountMint)
 			tickDict[i].updateAmount0(amount0Mint)
@@ -38,12 +38,12 @@ burnDF = createHistoricalData.getBurnDataFrame()
 for index, burn in burnDF.iterrows():
 	tickUpper = burn['tickUpper']
 	tickLower = burn['tickLower']
-	numTicksCovered = (tickUpper - tickLower)/60
+	numTicksCovered = 1 #(tickUpper - tickLower)/60
 	amountBurn = float(burn['amount']) / numTicksCovered
 	amount0Burn = float(burn['amount0']) / numTicksCovered
 	amount1Burn = float(burn['amount1']) / numTicksCovered
 	amountUSDBurn = float(burn['amountUSD']) / numTicksCovered
-	for i in range(tickUpper, tickLower, -60):
+	for i in range(tickUpper, tickLower + 1, -60):
 		if i in tickDict.keys():
 			tickDict[i].updateAmount(amountBurn*-1)
 			tickDict[i].updateAmount0(amount0Burn*-1)
@@ -59,7 +59,7 @@ x = []
 liq = []
 for key in keys:
 	x.append(tickDict[key].price0)
-	liq.append(tickDict[key].amountUSD)
+	liq.append(tickDict[key].amount)
 
 barWidth = testGraph.feeTierToBarWidth(poolFeeTier, 2500)
 plt.bar(x, liq, width=barWidth)

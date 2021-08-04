@@ -21,7 +21,7 @@ numPreviousBlocks = 10
 
 
 swapQuery = """
-	query pool($poolAddress: String!, $numPreviousBlocks: Int) {
+	query pool($poolAddress: String!, $numPreviousBlocks: Int, $direction: String) {
 	    pool(id: $poolAddress) {
 	      tick
 	      token0 {
@@ -40,12 +40,14 @@ swapQuery = """
 	      swaps(
 	      	first: $numPreviousBlocks
 	      	orderBy: timestamp
-	      	orderDirection: desc
+	      	orderDirection: $direction
 	      ){
 	      	amount0
 	      	amount1
 	      	amountUSD
 	      	tick
+	      	sqrtPriceX96
+	      	logIndex
 	      	transaction{
 	      		timestamp
 	      		blockNumber
@@ -61,7 +63,7 @@ def getBlockArray():
 
 	#Make call to API
 	try:	
-		swapData = client.execute(query=swapQuery, variables={"poolAddress": poolAddress, "numPreviousBlocks": numPreviousBlocks})
+		swapData = client.execute(query=swapQuery, variables={"poolAddress": poolAddress, "numPreviousBlocks": numPreviousBlocks, "direction": "desc"})
 	except:
 		return "ERROR", "Unkown Error"
 

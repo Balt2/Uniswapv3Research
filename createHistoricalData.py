@@ -8,20 +8,32 @@ import mintBurnPull
 import time
 import testGraph
 import pandas as pd
+import swapData
 
 client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3")
+usdcUSDT = "0x7858e59e0c01ea06df3af3d20ac7b0003275d4bf"
+usdcETH = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"
+wbtcETH = "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed"
+usdtETH = "0x4e68ccd3e89f51c3074ca5072bbac773960dfa36"
+daiUSDC = "0x6c6bc977e13df9b0de53b251522280bb72383700"
+mmUSDC = "0x84383fb05f610222430f69727aa638f8fdbf5cc1"
+shibETH = "0x5764a6f2212d502bc5970f9f129ffcd61e5d7563"
+#poolAddress = "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8"
+#poolAddress = "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed"
+#poolAddress = "0x6c6bc977e13df9b0de53b251522280bb72383700"
+poolAddress = usdcETH
 
 def getMintDataFrame():
 	mintsDataFrame = pd.read_pickle("mints.pkl")
 	# print(mintsDataFrame.iloc[-1])
 
 	rowList = []
-	firstTimestamp = mintsDataFrame.iloc[-1]['timestamp'] #1620169800 #int(mintsDataFrame.iloc[-1]['timestamp'])  #
+	firstTimestamp = int(mintsDataFrame.iloc[-1]['timestamp']) #1620169800 #int(mintsDataFrame.iloc[-1]['timestamp'])  #
 	nextTimestamp = firstTimestamp + 30000
 	while firstTimestamp < time.time():
 		print(firstTimestamp - time.time())
 		mintResults = mintBurnPull.getMints("asc", 300, firstTimestamp, nextTimestamp)
-		if mintResults != "ERROR GETTING MINT DATA":
+		if mintResults != "ERROR":
 			mints = mintResults['data']['pool']['mints']
 			for mint in mints:
 				newMint = mint
@@ -51,17 +63,15 @@ def getBurnDataFrame():
 	burnsDataFrame = pd.read_pickle("burns.pkl")
 	# print(burnsDataFrame.iloc[-1])
 	rowList = []
-	firstTimestamp = burnsDataFrame.iloc[-1]['timestamp'] #1620169800  #int(burnsDataFrame.iloc[-1]['timestamp'])  #
+	firstTimestamp = int(burnsDataFrame.iloc[-1]['timestamp']) #1620169800  #int(burnsDataFrame.iloc[-1]['timestamp'])  #
 	nextTimestamp = firstTimestamp + 30000
 	while firstTimestamp < time.time():
 		print(firstTimestamp - time.time())
 		burnResults = mintBurnPull.getBurns("asc", 300, firstTimestamp, nextTimestamp)
 		if burnResults != "ERROR":
-			print("BENEJAO: ", burnResults)
 			burns = burnResults['data']['pool']['burns']
 			for burn in burns:
 				newBurn = burn
-				print(type(burn['amount']))
 				newBurn['amount'] = float(burn['amount'])
 				newBurn['amount0'] = float(burn['amount0'])
 				newBurn['amount1'] = float(burn['amount1'])
@@ -82,3 +92,9 @@ def getBurnDataFrame():
 	burnsDataFrame.to_excel("burns.xlsx")
 	burnsDataFrame.to_pickle("burns.pkl")
 	return burnsDataFrame
+
+def getSwapDataFrame():
+	swapResults = client.execute(query=swapData.swapQuery, variables={"poolAddress": poolAddress, "numPreviousBlocks": 10, "direction": "asc"})
+	print(swapResults)
+
+getSwapDataFrame()
