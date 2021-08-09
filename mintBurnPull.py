@@ -106,6 +106,56 @@ def getBurns(direction, numberEvents, timeStampGTE = 0, timeStampLT = 1720169800
 
 	return burnResults
 
+def getSwaps(direction, numberEvents, timeStampGTE = 0, timeStampLT = 1720169800):
+	swapQuery = """
+		query pool($poolAddress: String!, $numberEvents: Int, $direction: String, $timeStampGTE: Int, $timeStampLT: Int) {
+		    pool(id: $poolAddress) {
+		      tick
+		      token0 {
+		      	id
+		        symbol
+		        decimals
+		      }
+		      token1 {
+		      	id
+		        symbol
+		        decimals
+		      }
+		      feeTier
+		      sqrtPrice
+		      liquidity
+		      swaps(
+		      	first: $numberEvents
+		      	orderBy: timestamp
+		      	orderDirection: $direction
+		      	where: {timestamp_gte: $timeStampGTE, timestamp_lt: $timeStampLT, amount1_lt: 0}
+		      ){
+		      	amount0
+		      	amount1
+		      	amountUSD
+		      	tick
+		      	sqrtPriceX96
+		      	logIndex
+		      	transaction{
+		      		timestamp
+		      		blockNumber
+		      		gasPrice
+		      	}
+		      }
+		    }
+	  }
+	"""
+	try:
+		swapResults = client.execute(query=swapQuery, variables={"poolAddress": poolAddress, "numberEvents": numberEvents, "direction": direction, "timeStampGTE": timeStampGTE, "timeStampLT": timeStampLT})
+	except:
+		return "ERROR"
+
+	if 'data' not in swapResults.keys():
+		return "ERROR"
+
+	return swapResults
+
+
 def getAverageTransactionFee():
 	mintResults = getMints("desc", numberPreviousEvents//2)
 	burnResults = getBurns("desc", numberPreviousEvents//2)

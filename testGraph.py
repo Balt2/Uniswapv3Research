@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from SqrtPriceMath import *
 from TickList import *
 import constants
+#import sys
 
 
 client = GraphqlClient(endpoint="https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3")
@@ -219,13 +220,16 @@ def createPoolWithTicks():
 		active = (tick.tickIdx == activeTickProcessed.tickIdx)
 
 		sqrtPriceX96 = sqrtPriceMath.getSqrtRatioAtTick(tick.tickIdx)
+
 		feeAmount = wholePool.feeTeir
 		mockTicks = [Tick(0, tick.tickIdx - wholePool.tickSpacing, tick.liquidityNet * -1, tick.liquidityGross, token0, token1), tick]
 		tickPool =  Pool(token0, token1, int(poolFeeTier), sqrtPriceX96, tick.liquidityActive, tick.tickIdx, mockTicks, poolAddress, tickSpacing)
 		if index != 0:
 			nextSqrtX96 = sqrtPriceMath.getSqrtRatioAtTick(wholePool.tickDataProvider.ticks[index - 1].tickIdx)
 			maxAmountToken0 = CurrencyAmount(token0, constants.MaxUnit128)
+			
 			outputRes0 = tickPool.getOutputAmount(maxAmountToken0, nextSqrtX96)
+
 			token1Amount = outputRes0[0]
 			wholePool.tickDataProvider.ticks[index - 1].setTvl(token1Amount.quotient() / divisionFactor, False)
 			wholePool.tickDataProvider.ticks[index - 1].setTvl(token1Amount.quotient() / divisionFactor * tick.price0, True)

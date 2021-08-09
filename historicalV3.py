@@ -52,15 +52,17 @@ for index, burn in burnDF.iterrows():
 
 
 
-
+totalUSD = 0
 keys = list(tickDict.keys())
 keys.sort()
 x = []
 liq = []
 for key in keys:
+	totalUSD += tickDict[key].amount0
 	x.append(tickDict[key].price0)
 	liq.append(tickDict[key].amount)
 
+print(totalUSD)
 barWidth = testGraph.feeTierToBarWidth(poolFeeTier, 2500)
 plt.bar(x, liq, width=barWidth)
 plt.show()

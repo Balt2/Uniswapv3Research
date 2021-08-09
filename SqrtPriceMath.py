@@ -22,7 +22,7 @@ class SqrtPriceMath:
 
 	def mulDivRoundingUp(self,a, b, denominator):
 		product = a * b
-		result = product / denominator
+		result = product // denominator
 
 		if product % denominator != 0:
 			result += 1
@@ -37,20 +37,28 @@ class SqrtPriceMath:
 		numerator2 = sqrtRatioBX96 - sqrtRatioAX96
 
 		if roundUp:
+			print("ROUNDING: ", self.mulDivRoundingUp(self.mulDivRoundingUp(numerator1, numerator2, sqrtRatioBX96), 1, sqrtRatioAX96) )
 			return self.mulDivRoundingUp(self.mulDivRoundingUp(numerator1, numerator2, sqrtRatioBX96), 1, sqrtRatioAX96) 
 		else:
-			return ((numerator2 * numerator1) / sqrtRatioBX96) / sqrtRatioAX96
-
+			print(numerator2)
+			print(numerator1)
+			print(sqrtRatioBX96)
+			print(sqrtRatioAX96)
+			print("HELLLLLO: ", ((numerator2 * numerator1) // sqrtRatioBX96) // sqrtRatioAX96)
+			return ((numerator2 * numerator1) // sqrtRatioBX96) // sqrtRatioAX96
 	def getAmount1Delta(self, sqrtRatioAX96, sqrtRatioBX96, liquidity, roundUp):
 		if sqrtRatioAX96 > sqrtRatioBX96:
 			sqrtRatioAX96, sqrtRatioBX96 = sqrtRatioBX96, sqrtRatioAX96
 
 		if roundUp:
+			print("Ro: ", self.mulDivRoundingUp(liquidity, (sqrtRatioBX96 - sqrtRatioAX96), constants.Q96))
 			return self.mulDivRoundingUp(liquidity, (sqrtRatioBX96 - sqrtRatioAX96), constants.Q96)
 		else:
-			return (liquidity * (sqrtRatioBX96 - sqrtRatioAX96)) / constants.Q96
+			print("HELLO liquidity: ", liquidity)
+			return (liquidity * (sqrtRatioBX96 - sqrtRatioAX96)) // constants.Q96
 
 	def getNextSqrtPriceFromInput(self, sqrtPX96, liquidity, amountIn, zeroForOne):
+		print("SQR AMOUNT IN: ", amountIn)
 		if zeroForOne:
 			return self.getNextSqrtPriceFromAmount0RoundingUp(sqrtPX96, liquidity, amountIn, True)
 		else:
@@ -58,6 +66,7 @@ class SqrtPriceMath:
 
 
 	def getNextSqrtPriceFromOutput(self, sqrtPX96, liquidity, amountOut, zeroForOne):
+		print("SQR AMOUNT OUT: ", amountOut)
 		if zeroForOne:
 			return self.getNextSqrtPriceFromAmount1RoundingDown(sqrtPX96, liquidity, amountOut, False)
 		else:
@@ -72,11 +81,11 @@ class SqrtPriceMath:
 
 		if add:
 			product = self.multiplyIn256(amount, sqrtPX96)
-			if product / amount == sqrtPX96:
+			if product // amount == sqrtPX96:
 				denominator = self.addIn256(numerator1, product)
 				if denominator >= numerator1:
 					return self.mulDivRoundingUp(numerator1, sqrtPX96, denominator)
-			return self.mulDivRoundingUp(numerator1, 1, (numerator1 / sqrtPX96) + amount)
+			return self.mulDivRoundingUp(numerator1, 1, (numerator1 // sqrtPX96) + amount)
 		else:
 			product = self.multiplyIn256(amount, sqrtPX96)
 
@@ -85,8 +94,9 @@ class SqrtPriceMath:
 			return self.mulDivRoundingUp(numerator1, sqrtPX96, denominator)
 
 	def getNextSqrtPriceFromAmount1RoundingDown(self, sqrtPX96, liquidity, amount, add):
+		print("GET NEXT SQRT: ", amount)
 		if add:
-			quotient = (amount << 96) / liquidity if amount <= constants.MaxUint160 else (amount * constants.Q96) / liquidity
+			quotient = (amount << 96) // liquidity if amount <= constants.MaxUint160 else (amount * constants.Q96) // liquidity
 			return sqrtPX96 + quotient
 		else:
 			quotient = self.mulDivRoundingUp(amount, constants.Q96, liquidity)

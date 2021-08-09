@@ -94,7 +94,30 @@ def getBurnDataFrame():
 	return burnsDataFrame
 
 def getSwapDataFrame():
-	swapResults = client.execute(query=swapData.swapQuery, variables={"poolAddress": poolAddress, "numPreviousBlocks": 10, "direction": "asc"})
+	swapResults = mintBurnPull.getSwaps("desc", 2)
+	
+	pool, feeTier, priceAtTick = testGraph.createPoolWithTicks()
+	pool.setSqrtRatioX96(int(swapResults['data']['pool']['swaps'][1]['sqrtPriceX96']))
+	swapAmount0 = CurrencyAmount(pool.token0, float(swapResults['data']['pool']['swaps'][0]['amount0']))
+	swapAmount1 = CurrencyAmount(pool.token1, float(swapResults['data']['pool']['swaps'][0]['amount1']))
 	print(swapResults)
+	print("BETTINA")
+	if swapAmount0.quotient() > swapAmount1.quotient():
+		print(int(swapResults['data']['pool']['swaps'][0]['sqrtPriceX96'] ))
+		print(swapAmount0.quotient())
+		print(swapAmount0.currency.symbol)
+		amount, p = pool.getOutputAmount(swapAmount0, int(swapResults['data']['pool']['swaps'][0]['sqrtPriceX96'] ))
+		print(amount)
+		print("SWAP AMOUNT: ", amount.quotient())
+	else:
+		print(int(swapResults['data']['pool']['swaps'][0]['sqrtPriceX96'] ))
+		print(swapAmount1.quotient())
+		print(swapAmount1.currency.symbol)
+		amount, p = pool.getOutputAmount(swapAmount1, int(swapResults['data']['pool']['swaps'][0]['sqrtPriceX96'] ))
+		print(amount)
+		print("SWAP AMOUNT: ", amount.quotient())
+	#sys.exit()
+
+	
 
 getSwapDataFrame()
