@@ -28,6 +28,7 @@ def getMintDataFrame():
 	# print(mintsDataFrame.iloc[-1])
 
 	rowList = []
+	#1620169800 Use this to bulid data for first time
 	firstTimestamp = int(mintsDataFrame.iloc[-1]['timestamp']) #1620169800 #int(mintsDataFrame.iloc[-1]['timestamp'])  #
 	nextTimestamp = firstTimestamp + 30000
 	while firstTimestamp < time.time():
@@ -63,6 +64,7 @@ def getBurnDataFrame():
 	burnsDataFrame = pd.read_pickle("burns.pkl")
 	# print(burnsDataFrame.iloc[-1])
 	rowList = []
+	#1620169800 Use this to bulid data for first time
 	firstTimestamp = int(burnsDataFrame.iloc[-1]['timestamp']) #1620169800  #int(burnsDataFrame.iloc[-1]['timestamp'])  #
 	nextTimestamp = firstTimestamp + 30000
 	while firstTimestamp < time.time():
@@ -120,4 +122,4 @@ def getSwapDataFrame():
 
 	
 
-getSwapDataFrame()
+#getSwapDataFrame()
