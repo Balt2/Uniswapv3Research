@@ -128,7 +128,7 @@ def getSwaps(direction, numberEvents, timeStampGTE = 0, timeStampLT = 1720169800
 		      	first: $numberEvents
 		      	orderBy: timestamp
 		      	orderDirection: $direction
-		      	where: {timestamp_gte: $timeStampGTE, timestamp_lt: $timeStampLT, amount1_lt: 0}
+		      	where: {timestamp_gte: $timeStampGTE, timestamp_lt: $timeStampLT}
 		      ){
 		      	amount0
 		      	amount1
@@ -140,11 +140,13 @@ def getSwaps(direction, numberEvents, timeStampGTE = 0, timeStampLT = 1720169800
 		      		timestamp
 		      		blockNumber
 		      		gasPrice
+		      		gasUsed
 		      	}
 		      }
 		    }
 	  }
 	"""
+	#, amount1_lt: 0
 	try:
 		swapResults = client.execute(query=swapQuery, variables={"poolAddress": poolAddress, "numberEvents": numberEvents, "direction": direction, "timeStampGTE": timeStampGTE, "timeStampLT": timeStampLT})
 	except:

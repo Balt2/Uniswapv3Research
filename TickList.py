@@ -3,6 +3,16 @@ class TickList:
 		self.ticks = ticks
 		self.tickSpacing = tickSpacing
 
+	def reset(self):
+		for tick in self.ticks:
+			tick.liquidityActive = 0
+			tick.liquidityNet = 0
+			tick.liquidityGross = 0
+			tick.amount = 0
+			tick.amount0 = 0
+			tick.amount1 = 0
+			tick.amountUSD = 0
+
 	def isBelowSmallest(self, tickIdx):
 		return tickIdx < self.ticks[0].tickIdx
 

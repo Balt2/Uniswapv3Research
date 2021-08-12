@@ -250,31 +250,31 @@ def getActiveTick():
 
 
 #For Graph
-# pool, poolFeeTier, curPrice = createPoolWithTicks()
+pool, poolFeeTier, curPrice = createPoolWithTicks()
 
-# x = []
-# liq = []
-# amountEth = []
-# for tick in pool.tickDataProvider.ticks:
-# 	amountEth.append(tick.tvlToken1)
-# 	x.append(tick.price0)
-# 	liq.append(tick.liquidityActive)
-# 	print("Price 0: ", tick.price0)
-# 	print("Price 1: ", tick.price1)
+x = []
+liq = []
+amountEth = []
+for tick in pool.tickDataProvider.ticks:
+	amountEth.append(tick.tvlToken1)
+	x.append(tick.price0)
+	liq.append(tick.liquidityActive)
+	print("Price 0: ", tick.price0)
+	print("Price 1: ", tick.price1)
 
-# 	print("TVL Token 1: ", tick.tvlToken1)
-# 	print("TVL Token 0: ", tick.tvlToken0)
-# #Building Graph
+	print("TVL Token 1: ", tick.tvlToken1)
+	print("TVL Token 0: ", tick.tvlToken0)
+#Building Graph
 
-# barWidth = feeTierToBarWidth(poolFeeTier, pool.tickDataProvider.ticks[numSurroundingTicks].price0)
-# barlist = plt.bar(x, amountEth, width=barWidth)
-# barlist[numSurroundingTicks].set_color('r')
-# barlist[numSurroundingTicks].set_label(("Current Tick = {} usd".format(round(pool.tickDataProvider.ticks[numSurroundingTicks].price0, 2))))
-# plt.xlabel("Price {} / {}".format(pool.token0.symbol, pool.token1.symbol))
-# plt.ylabel("Total Liquidity")
-# plt.title("{} / {} liquidity locked".format(pool.token0.symbol, pool.token1.symbol))
-# plt.legend()
-# plt.show()
+barWidth = feeTierToBarWidth(poolFeeTier, pool.tickDataProvider.ticks[numSurroundingTicks].price0)
+barlist = plt.bar(x, amountEth, width=barWidth)
+barlist[numSurroundingTicks].set_color('r')
+barlist[numSurroundingTicks].set_label(("Current Tick = {} usd".format(round(pool.tickDataProvider.ticks[numSurroundingTicks].price0, 2))))
+plt.xlabel("Price {} / {}".format(pool.token0.symbol, pool.token1.symbol))
+plt.ylabel("Total Liquidity")
+plt.title("{} / {} liquidity locked".format(pool.token0.symbol, pool.token1.symbol))
+plt.legend()
+plt.show()
 
 
 

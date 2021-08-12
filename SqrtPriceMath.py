@@ -30,31 +30,40 @@ class SqrtPriceMath:
 		return result
 
 	def getAmount0Delta(self, sqrtRatioAX96, sqrtRatioBX96, liquidity, roundUp):
+		if sqrtRatioAX96 == sqrtRatioBX96:
+		 	return 0
+
 		if sqrtRatioAX96 > sqrtRatioBX96:
 			sqrtRatioAX96, sqrtRatioBX96 = sqrtRatioBX96, sqrtRatioAX96
-
 		numerator1 = liquidity << 96
 		numerator2 = sqrtRatioBX96 - sqrtRatioAX96
 
 		if roundUp:
-			print("ROUNDING: ", self.mulDivRoundingUp(self.mulDivRoundingUp(numerator1, numerator2, sqrtRatioBX96), 1, sqrtRatioAX96) )
+			# print("sqrtRatioAX96: ", sqrtRatioAX96)
+			# print("sqrtRatioBX96: ", sqrtRatioBX96)
+			# print("liquidity: ", liquidity)
+			# print("ROUNDING: ", self.mulDivRoundingUp(self.mulDivRoundingUp(numerator1, numerator2, sqrtRatioBX96), 1, sqrtRatioAX96) )
 			return self.mulDivRoundingUp(self.mulDivRoundingUp(numerator1, numerator2, sqrtRatioBX96), 1, sqrtRatioAX96) 
 		else:
-			print(numerator2)
-			print(numerator1)
-			print(sqrtRatioBX96)
-			print(sqrtRatioAX96)
-			print("HELLLLLO: ", ((numerator2 * numerator1) // sqrtRatioBX96) // sqrtRatioAX96)
+			# print(numerator2)
+			# print(numerator1)
+			# print(sqrtRatioBX96)
+			# print(sqrtRatioAX96)
+			# print("HELLLLLO: ", ((numerator2 * numerator1) // sqrtRatioBX96) // sqrtRatioAX96)
 			return ((numerator2 * numerator1) // sqrtRatioBX96) // sqrtRatioAX96
+
 	def getAmount1Delta(self, sqrtRatioAX96, sqrtRatioBX96, liquidity, roundUp):
+		if sqrtRatioAX96 == sqrtRatioBX96:
+		 	return 0
+
 		if sqrtRatioAX96 > sqrtRatioBX96:
 			sqrtRatioAX96, sqrtRatioBX96 = sqrtRatioBX96, sqrtRatioAX96
 
 		if roundUp:
-			print("Ro: ", self.mulDivRoundingUp(liquidity, (sqrtRatioBX96 - sqrtRatioAX96), constants.Q96))
+			#print("Ro: ", self.mulDivRoundingUp(liquidity, (sqrtRatioBX96 - sqrtRatioAX96), constants.Q96))
 			return self.mulDivRoundingUp(liquidity, (sqrtRatioBX96 - sqrtRatioAX96), constants.Q96)
 		else:
-			print("HELLO liquidity: ", liquidity)
+			#print("HELLO liquidity: ", liquidity)
 			return (liquidity * (sqrtRatioBX96 - sqrtRatioAX96)) // constants.Q96
 
 	def getNextSqrtPriceFromInput(self, sqrtPX96, liquidity, amountIn, zeroForOne):

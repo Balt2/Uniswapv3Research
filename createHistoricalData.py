@@ -23,13 +23,14 @@ shibETH = "0x5764a6f2212d502bc5970f9f129ffcd61e5d7563"
 #poolAddress = "0x6c6bc977e13df9b0de53b251522280bb72383700"
 poolAddress = usdcETH
 
-def getMintDataFrame():
-	mintsDataFrame = pd.read_pickle("mints.pkl")
-	# print(mintsDataFrame.iloc[-1])
+def getMintDataFrame(fromStart):
+	if fromStart:
+		firstTimestamp = 1620169800
+	else:
+		mintsDataFrame = pd.read_pickle("mints.pkl")
+		firstTimestamp = int(mintsDataFrame.iloc[-1]['timestamp'])
 
 	rowList = []
-	#1620169800 Use this to bulid data for first time
-	firstTimestamp = int(mintsDataFrame.iloc[-1]['timestamp']) #1620169800 #int(mintsDataFrame.iloc[-1]['timestamp'])  #
 	nextTimestamp = firstTimestamp + 30000
 	while firstTimestamp < time.time():
 		print(firstTimestamp - time.time())
@@ -48,24 +49,32 @@ def getMintDataFrame():
 				newMint['blockNumber'] = int(newMint['transaction']['blockNumber'])
 				newMint['gasPrice'] = int(newMint['transaction']['gasPrice'])
 				newMint['gasUsed'] = int(newMint['transaction']['gasUsed'])
+				newMint['tick'] = -1
+				newMint['sqrtPriceX96'] = -1
+				newMint['type'] = "bMint"
 				newMint.pop('transaction')
 				rowList.append(newMint)
 		firstTimestamp = nextTimestamp
 		nextTimestamp += 30000
 
-	#mintsDataFrame = pd.DataFrame(rowList)
-	mintsDataFrame = mintsDataFrame.append(rowList, ignore_index=True, sort=False)
+	if fromStart:
+		mintsDataFrame = pd.DataFrame(rowList)
+	else:
+		mintsDataFrame = mintsDataFrame.append(rowList, ignore_index=True, sort=False)
+
 	mintsDataFrame.to_excel("mints.xlsx")
 	mintsDataFrame.to_pickle("mints.pkl")
 	# print(mintsDataFrame.iloc[-1])
 	return mintsDataFrame
 
-def getBurnDataFrame():
-	burnsDataFrame = pd.read_pickle("burns.pkl")
-	# print(burnsDataFrame.iloc[-1])
+def getBurnDataFrame(fromStart):
+	if fromStart:
+		firstTimestamp = 1620169800
+	else:
+		burnsDataFrame = pd.read_pickle("burns.pkl")
+		firstTimestamp = int(burnsDataFrame.iloc[-1]['timestamp'])
+	
 	rowList = []
-	#1620169800 Use this to bulid data for first time
-	firstTimestamp = int(burnsDataFrame.iloc[-1]['timestamp']) #1620169800  #int(burnsDataFrame.iloc[-1]['timestamp'])  #
 	nextTimestamp = firstTimestamp + 30000
 	while firstTimestamp < time.time():
 		print(firstTimestamp - time.time())
@@ -84,42 +93,94 @@ def getBurnDataFrame():
 				newBurn['blockNumber'] = int(newBurn['transaction']['blockNumber'])
 				newBurn['gasPrice'] = int(newBurn['transaction']['gasPrice'])
 				newBurn['gasUsed'] = int(newBurn['transaction']['gasUsed'])
+				newBurn['tick'] = -1
+				newBurn['sqrtPriceX96'] = -1
+				newBurn['type'] = "cBurn"
 				newBurn.pop('transaction')
 				rowList.append(newBurn)
 		firstTimestamp = nextTimestamp
 		nextTimestamp += 30000
 
-	#burnsDataFrame = pd.DataFrame(rowList)
-	burnsDataFrame = burnsDataFrame.append(rowList, ignore_index=True, sort=False)
+	if fromStart:
+		burnsDataFrame = pd.DataFrame(rowList)
+	else:
+		burnsDataFrame = burnsDataFrame.append(rowList, ignore_index=True, sort=False)
+
 	burnsDataFrame.to_excel("burns.xlsx")
 	burnsDataFrame.to_pickle("burns.pkl")
 	return burnsDataFrame
 
-def getSwapDataFrame():
-	swapResults = mintBurnPull.getSwaps("desc", 2)
-	
-	pool, feeTier, priceAtTick = testGraph.createPoolWithTicks()
-	pool.setSqrtRatioX96(int(swapResults['data']['pool']['swaps'][1]['sqrtPriceX96']))
-	swapAmount0 = CurrencyAmount(pool.token0, float(swapResults['data']['pool']['swaps'][0]['amount0']))
-	swapAmount1 = CurrencyAmount(pool.token1, float(swapResults['data']['pool']['swaps'][0]['amount1']))
-	print(swapResults)
-	print("BETTINA")
-	if swapAmount0.quotient() > swapAmount1.quotient():
-		print(int(swapResults['data']['pool']['swaps'][0]['sqrtPriceX96'] ))
-		print(swapAmount0.quotient())
-		print(swapAmount0.currency.symbol)
-		amount, p = pool.getOutputAmount(swapAmount0, int(swapResults['data']['pool']['swaps'][0]['sqrtPriceX96'] ))
-		print(amount)
-		print("SWAP AMOUNT: ", amount.quotient())
+def getSwapDataFrame(fromStart):
+	if fromStart:
+		firstTimestamp = 1620169800
 	else:
-		print(int(swapResults['data']['pool']['swaps'][0]['sqrtPriceX96'] ))
-		print(swapAmount1.quotient())
-		print(swapAmount1.currency.symbol)
-		amount, p = pool.getOutputAmount(swapAmount1, int(swapResults['data']['pool']['swaps'][0]['sqrtPriceX96'] ))
-		print(amount)
-		print("SWAP AMOUNT: ", amount.quotient())
-	#sys.exit()
+		swapsDataFrame = pd.read_pickle("swaps.pkl")
+		firstTimestamp = int(swapsDataFrame.iloc[-1]['timestamp'])
+	
+	rowList = []
+	nextTimestamp = firstTimestamp + 30000
+	while firstTimestamp < time.time():
+		print(firstTimestamp - time.time())
+		swapResults = mintBurnPull.getSwaps("asc", 300, firstTimestamp, nextTimestamp)
+		if swapResults != "ERROR":
+			swaps = swapResults['data']['pool']['swaps']
+			for swap in swaps:
+				newSwap = swap
+				newSwap['amount0'] = float(swap['amount0'])
+				newSwap['amount1'] = float(swap['amount1'])
+				newSwap['amountUSD'] = float(swap['amountUSD'])
+				newSwap['tick'] = int(swap['tick'])
+				newSwap['sqrtPriceX96'] = int(swap['sqrtPriceX96'])
+				newSwap['timestamp'] = int(swap['transaction']['timestamp'])
+				newSwap['blockNumber'] = int(newSwap['transaction']['blockNumber'])
+				newSwap['gasPrice'] = int(newSwap['transaction']['gasPrice'])
+				newSwap['gasUsed'] = int(newSwap['transaction']['gasUsed'])
+				newSwap['amount'] = -1
+				newSwap['tickLower'] = -1
+				newSwap['tickUpper'] = -1
+				newSwap['type'] = "aSwap"
+				newSwap.pop('transaction')
+				rowList.append(newSwap)
+		firstTimestamp = nextTimestamp
+		nextTimestamp += 30000
+
+	if fromStart:
+		swapsDataFrame = pd.DataFrame(rowList)
+	else:
+		swapsDataFrame = swapsDataFrame.append(rowList, ignore_index=True, sort=False)
+
+	swapsDataFrame.to_excel("swaps.xlsx")
+	swapsDataFrame.to_pickle("swaps.pkl")
+	return swapsDataFrame
+
+	# swapResults = mintBurnPull.getSwaps("desc", 2)
+	
+	# pool, feeTier, priceAtTick = testGraph.createPoolWithTicks()
+	# pool.setSqrtRatioX96(int(swapResults['data']['pool']['swaps'][1]['sqrtPriceX96']))
+	# swapAmount0 = CurrencyAmount(pool.token0, float(swapResults['data']['pool']['swaps'][0]['amount0']))
+	# swapAmount1 = CurrencyAmount(pool.token1, float(swapResults['data']['pool']['swaps'][0]['amount1']))
+	# print(swapResults)
+	# print("BETTINA")
+	# if swapAmount0.quotient() > swapAmount1.quotient():
+	# 	print(int(swapResults['data']['pool']['swaps'][0]['sqrtPriceX96'] ))
+	# 	print(swapAmount0.quotient())
+	# 	print(swapAmount0.currency.symbol)
+	# 	amount, p = pool.getOutputAmount(swapAmount0, int(swapResults['data']['pool']['swaps'][0]['sqrtPriceX96'] ))
+	# 	print(amount)
+	# 	print("SWAP AMOUNT: ", amount.quotient())
+	# else:
+	# 	print(int(swapResults['data']['pool']['swaps'][0]['sqrtPriceX96'] ))
+	# 	print(swapAmount1.quotient())
+	# 	print(swapAmount1.currency.symbol)
+	# 	amount, p = pool.getOutputAmount(swapAmount1, int(swapResults['data']['pool']['swaps'][0]['sqrtPriceX96'] ))
+	# 	print(amount)
+	# 	print("SWAP AMOUNT: ", amount.quotient())
+	# #sys.exit()
 
 	
 
 #getSwapDataFrame()
+
+# getMintDataFrame(True)
+# getBurnDataFrame(True)
+# getSwapDataFrame(True)
